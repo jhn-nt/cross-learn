@@ -1,3 +1,5 @@
 .spyproject/
 __pycache__/
 _raw/
+.ipynb_checkpoints/
+
