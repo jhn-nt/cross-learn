@@ -19,7 +19,7 @@ Cheers!
 _jhn_ai_ are an ensemble of sklearn wrappers aiming to simplify the validation of supervised machine learning models.  
 Particularly, these libraries address how the _groups_ parameter is handled by scikit-learn, which has been bugging me for a while.   
 The main features I focused on are:
-* Clealiness of code.
+* Cleanliness of code.
 * Flexibility.
 * Automation and completeness of models scoring.
 * Simplification of nested crossvalidation procedures.
