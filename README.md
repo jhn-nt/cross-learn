@@ -31,7 +31,7 @@ Contains the __supervised_crossvalidation__ method, an all-in-one wrapper to obt
 
 ### _crossvalidators_ module
 The __crossvalidators__ module introduces two new crossvalidators:
-* __WalkForwardCV__: Similar to sklearn TimeSeriesSplit in concept, but extenxed to support for group-wise time splitting. 
+* __WalkForwardCV__: Similar to sklearn TimeSeriesSplit in concept, but extended to support for group-wise time splitting. 
 * __StackedCV__: Combines the effect of different validation models. For example, if you need to validate data of different costumers with different purchase habits, you can combine GroupKFold and StratifiedKFold within StackedCV. 
 
 ### _transformers_ module
