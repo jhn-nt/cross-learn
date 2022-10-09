@@ -27,15 +27,21 @@ The main features I focused on are:
 The code is functionally split in 3 separate modules: _crossvalidators_, _evaluation_ and _transformers_.
 
 ### _evaluation_ module
-Contains the __supervised_crossvalidation__ method, an all-in-one wrapper to obtain crossvalidation and nested crossvalidation scores with any sklearn-like model or pipeline, but most importantly allows for _intra-fold dependencies_ during crossvalidation (ie nested crossvalidation with GroupKFold or similar).
+Contains the ```supervised_crossvalidation``` method, an all-in-one wrapper to obtain crossvalidation and nested crossvalidation scores with any sklearn-like model or pipeline, but most importantly allows for _intra-fold dependencies_ during crossvalidation (ie nested crossvalidation with GroupKFold or similar).
 
 ### _crossvalidators_ module
-The __crossvalidators__ module introduces two new crossvalidators:
-* __WalkForwardCV__: Similar to sklearn TimeSeriesSplit in concept, but extended to support for group-wise time splitting. 
-* __StackedCV__: Combines the effect of different validation models. For example, if you need to validate data of different costumers with different purchase habits, you can combine GroupKFold and StratifiedKFold within StackedCV. 
+The ```crossvalidators``` module introduces two new crossvalidators:
+* ```WalkForwardCV```: Similar to sklearn TimeSeriesSplit in concept, but extended to support for group-wise time splitting. 
+* ```StackedCV```: Combines the effect of different validation models. For example, if you need to validate data of different costumers with different purchase habits, you can combine GroupKFold and StratifiedKFold within ```StackedCV```. 
 
 ### _transformers_ module
 Revisions of some vanilla sklearn transformers with some new functionality:  
-* __RateImputer__: Drop columns missing more than user-predifined rate and imputes the rest. 
-* __ColinearityRemover__: An unsupervised feature filtering model which removes correlated features.
-* __IsolationForest__: sklearn IsolationForest made compatible with pipelines and crossvalidation routines.
+* ```RateImputer```: Drop columns missing more than user-predifined rate and imputes the rest. 
+* ```ColinearityRemover```: An unsupervised feature filtering model which removes correlated features.
+* ```IsolationForest```: sklearn IsolationForest made compatible with pipelines and crossvalidation routines.
+
+## Installation Notes:
+
+Run:  
+
+```pip install jhn_ai/```
