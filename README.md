@@ -29,6 +29,8 @@ The code is functionally split in 3 separate modules: _crossvalidators_, _evalua
 ### _evaluation_ module
 Contains the ```supervised_crossvalidation``` method, an all-in-one wrapper to obtain crossvalidation and nested crossvalidation scores with any sklearn-like model or pipeline, but most importantly allows for _intra-fold dependencies_ during crossvalidation (ie nested crossvalidation with GroupKFold or similar).
 
+```find_inertia_elbow``` is another handy method for unsupervised inertia based clustering models (aka KMeans etc etc). It allows for quick identification of the inertia elbo using the triangle method.
+
 ### _crossvalidators_ module
 The ```crossvalidators``` module introduces two new crossvalidators:
 * ```WalkForwardCV```: Similar to sklearn TimeSeriesSplit in concept, but extended to support for group-wise time splitting. 
@@ -44,4 +46,4 @@ Revisions of some vanilla sklearn transformers with some new functionality:
 
 Run:  
 
-```pip install jhn_ai/```
+```pip install git+https://github.com/jhn-nt/jhn_ai.git```
