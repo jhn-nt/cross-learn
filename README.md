@@ -46,4 +46,4 @@ Revisions of some vanilla sklearn transformers with some new functionality:
 
 Run:  
 
-```pip install git+https://github.com/jhn-nt/jhn_ai.git```
+```pip install "git+https://github.com/jhn-nt/jhn_ai.git"```
