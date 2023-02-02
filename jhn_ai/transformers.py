@@ -1,234 +1,203 @@
 import numpy as np
-import pandas as pd
 
-from . import _utils as ut
-from . import _types as tp
+from scipy.stats import ttest_1samp
+
 from ._controllers import validate_input
 
-
-from imblearn.over_sampling import SMOTENC
-
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.ensemble import IsolationForest
-from sklearn.impute import SimpleImputer
+from sklearn.model_selection import KFold
 
 
-from typing import Union, List, Optional, Callable, Dict, Type, Any
-from numpy.typing import ArrayLike, DTypeLike
-from warnings import warn
-
-Covariates = Type[Union[ArrayLike, pd.DataFrame, List[List[float]]]]
-Targets = Type[Union[ArrayLike, pd.Series, List[float]]]
-Probabilites = Type[Union[ArrayLike, pd.DataFrame, List[List[float]]]]
-Groups = Type[Union[ArrayLike, DTypeLike, pd.Series, List[Any]]]
+from numpy.typing import ArrayLike
+from typing import Tuple, Dict, Callable, Optional
 
 
-class ColinearityRemover(BaseEstimator, TransformerMixin):
-    """
-    Removes linearly correlated features.
+class DropColin(BaseEstimator, TransformerMixin):
+    _coef: ArrayLike
 
+    def __init__(self, threshold: float = 0.9, method: str = "pearson"):
+        """Removal of linearly correlated features.
 
-    Parameters
-    ----------
-    threshold : float, optional
-        Threshold below which features are discarded.
-        The default is 0.95.
-    method : str, optional
-        Method used to compute correlations,
-        must be in {'pearson','spearman','kendall'}.
-        The default is "pearson".
-    """
-
-    def __init__(self, threshold: float = 0.95, method: str = "pearson"):
-
-        self.threshold = threshold
+        Parameters
+        ----------
+        threshold : float, optional
+            Features with correlation index above threshold are discarded, by default .9
+        method : str, optional
+            Method to estimate correlations across features, can be one of ['pearson','spearman'], by default "pearson"
+        """
+        assert (
+            threshold > 0.0 and threshold <= 1.0 and isinstance(threshold, float)
+        ), "'threshold' must be a float in the interval (.0,1.0]"
+        assert (
+            method in self.catalogue().keys()
+        ), f"'method' can only be on of:{list(self.catalogue().keys())}"
         self.method = method
+        self.threshold = threshold
 
-    def fit(self, X: Covariates, y: Optional[Targets] = None):
-        _ = validate_input(X, y, None, ignore_y=True)
+    def fit(self, X, y=None):
+        X, _, _ = validate_input(X, y, None, ignore_y=True)
 
-        if isinstance(X, np.ndarray):
-            _X = pd.DataFrame(X)
-        else:
-            _X = X.copy()
-
-        r = _X.corr(method=self.method).abs()
-        bool_mask = np.ones(r.shape)
-        upper_r = r.where(np.triu(bool_mask, 1).astype(bool))
-        to_drop = [
-            column
-            for column in upper_r.columns
-            if any(upper_r[column] > self.threshold)
-        ]
-        to_keep = set(_X.columns.to_list()).difference(to_drop)
-
-        self.colinear_features_ = to_drop
-        self.selected_features_ = list(to_keep)
-
-        # computes support mask
-        self._support = []
-        for col in _X.columns.to_list():
-            if col in self.selected_features_:
-                self._support.append(True)
-            else:
-                self._support.append(False)
-
+        correlation_func = self.catalogue()[self.method]
+        r = correlation_func(X)
+        self.support = self.find_features_below_threshold(r, self.threshold)
+        self.coef_ = r
         return self
 
-    def transform(self, X: Covariates, y: Optional[Targets] = None):
-        _ = validate_input(X, y, None, ignore_y=True)
+    def transform(self, X, y=None):
+        X, _, _ = validate_input(X, y, None, ignore_y=True)
+        return X[:, self.get_support()]
 
-        if isinstance(X, np.ndarray):
-            _X = pd.DataFrame(X)
-        else:
-            _X = X.copy()
+    def get_support(self, indices=False):
+        return np.where(self.support)[0] if indices else self.support
 
-        X_transformed = _X.drop(self.colinear_features_, axis=1)
-        return X_transformed
+    @staticmethod
+    def find_features_below_threshold(
+        r: ArrayLike, threshold: float
+    ) -> Tuple[ArrayLike, ArrayLike]:
+        r = np.abs(r)
+        np.fill_diagonal(r, 0.0)
+        mask = np.where(r > threshold, True, False)
 
-    def get_support(self):
-        return np.array(self._support)
+        to_skip = np.ones((r.shape[0],), dtype="int")
+        for i, local_mask in enumerate(mask):
+            if to_skip[i] == 1:
+                to_skip[np.where(local_mask)] = 0
 
+        support = np.where(to_skip == 1, True, False)
+        return support
 
-class IsolationForestV2(IsolationForest):
-    """
-    sklearn IsolationForest made compatible with imblearn Pipelines.
+    @staticmethod
+    def pearson_coeff(X: ArrayLike) -> ArrayLike:
+        covariance = np.cov(X, rowvar=False)
+        sigma = np.expand_dims(np.std(X, axis=0), axis=1)
+        sigma = np.matmul(sigma, sigma.T)
+        return np.clip(covariance / sigma, -1.0, 1.0)
 
-    Extends IsolationForest compatibility for outliers removal within pipelines.
-    ALPHA
-    """
+    @staticmethod
+    def spearman_coeff(X: ArrayLike) -> ArrayLike:
+        ranks = np.argsort(X, axis=0)
+        return DropColin.pearson_coeff(ranks)
 
-    def fit_resample(self, X: Covariates, y: Targets):
-        _ = validate_input(X, y, None, ignore_y=False, ignore_X=False)
-        inliners = super().fit_predict(X, y=None)
-        inliners_ix = np.where(inliners == 1)[0]
-
-        X_sampled = ut._index_X(X, inliners_ix)
-        if y is not None:
-            y_sampled = ut._index_y(y, inliners_ix)
-        else:
-            y_sampled = None
-        return X_sampled, y_sampled
-
-
-class RateImputer(SimpleImputer):
-    """
-    Imputation transformer for handling missing values.
-
-    Revision of the vanilla sklearn SimpleImputer but with:
-        - get_support: method to track dropped features.
-        - max_na_rate: maximum rate of missing values allowed for feature.
+    @staticmethod
+    def catalogue() -> Dict[str, Callable]:
+        return {
+            "pearson": DropColin.pearson_coeff,
+            "spearman": DropColin.spearman_coeff,
+        }
 
 
+class DropColinCV(DropColin):
+    coef_: ArrayLike
 
-    Parameters
-    ----------
-    max_na_rate : float, optional
-        Float indicating the maximum consented rate of missing
-        values for each column. Columns with missing rates greater
-        than max_na_rate are dropped.
-        The default is 1.
-    **kwargs : TYPE
-        All other arguments supported by sklearn SimpleImputer.
+    def __init__(self, cv=KFold(), alpha=0.05, **kwargs):
+        """Removal of linearly correlated features via crossvalidation.
 
+        Parameters
+        ----------
+        threshold : float, optional
+            Features with correlation index above threshold are discarded, by default .9
+        method : str, optional
+            Method to estimate correlations across features, can be one of ['pearson','spearman'], by default "pearson"
+        cv : _type_, optional
+            Crossvalidation strategy, by default KFold()
+        alpha : float, optional
+            Threshold of significance, by default .05
+        """
+        super(DropColinCV, self).__init__(**kwargs)
+        self.cv = cv
+        self.alpha = alpha
 
-    """
-
-    def __init__(
-        self,
-        missing_values: Optional[Union[int, float, str]] = np.nan,
-        strategy: str = "mean",
-        fill_value: Optional[Union[int, float, str]] = None,
-        max_na_rate: float = 1,
-        verbose: int = 0,
-        copy: bool = True,
-        add_indicator: bool = False,
-    ):
-        warn("RateImputer will be deprecated")
-        _ = super().__init__(
-            missing_values=missing_values,
-            strategy=strategy,
-            fill_value=fill_value,
-            verbose=verbose,
-            copy=copy,
-            add_indicator=add_indicator,
+    def fit(self, X, y=None):
+        X, _, _ = validate_input(X, y, None, ignore_y=True)
+        self.coef_ = self.bootstrap_correlation_coefficients(X, y)
+        self.support = self.find_features_significantly_below_threshold(
+            self.coef_, self.threshold, self.alpha
         )
+        return self
+
+    def bootstrap_correlation_coefficients(
+        self, X: ArrayLike, y: ArrayLike
+    ) -> ArrayLike:
+        support = []
+        for infold, _ in self.cv.split(X, y):
+            local_coef = super().fit(X[infold, :]).coef_
+            np.fill_diagonal(local_coef, 0.0)
+            support.append(np.expand_dims(local_coef, axis=-1))
+        support = np.concatenate(support, axis=-1)
+        return support
+
+    @staticmethod
+    def find_features_significantly_below_threshold(
+        boostrapped_r: ArrayLike, threshold: float, alpha: float
+    ) -> ArrayLike:
+        boostrapped_r = np.abs(boostrapped_r)
+
+        to_skip = np.ones((boostrapped_r.shape[0],), dtype="bool")
+        for i, row in enumerate(boostrapped_r):
+            if to_skip[i]:
+                pval = ttest_1samp(
+                    row, popmean=threshold, axis=1, alternative="less"
+                ).pvalue
+                to_skip[np.where(pval > alpha)] = False
+        return to_skip
+
+
+class DropByMissingRate(BaseEstimator, TransformerMixin):
+    coef_: ArrayLike
+
+    def __init__(self, max_na_rate: float = 0.3):
+        """Drops features missing more than a pre-defined rate.
+
+        Parameters
+        ----------
+        max_na_rate : float, optional
+            Maximum rate of missing samples after which the feature is discarded, by default .3
+        """
         self.max_na_rate = max_na_rate
 
-    def fit(
-        self,
-        X: Covariates,
-        y: Optional[Targets] = None,
-        groups: Optional[Groups] = None,
-    ):
-        _ = validate_input(X, y, groups, ignore_y=True, ignore_groups=True)
-        if isinstance(X, pd.DataFrame):
-            X_array = X.values
-        elif isinstance(X, np.ndarray):
-            X_array = X
-
-        self.support = np.isnan(X_array).mean(axis=0) < self.max_na_rate
-        X_filtered = X_array[:, self.support]
-        _ = super().fit(X_filtered, y)
+    def fit(self, X, y=None):
+        X, _, _ = validate_input(X, y, None, ignore_y=True)
+        na_mask = np.isnan(X)
+        self.coef_ = np.mean(na_mask, axis=0)
+        self.support = np.where(self.coef_ <= self.max_na_rate, True, False)
         return self
 
-    def transform(
-        self,
-        X: Covariates,
-        y: Optional[Targets] = None,
-        groups: Optional[Groups] = None,
-    ):
-        _ = validate_input(X, y, groups, ignore_y=True, ignore_groups=True)
-        if isinstance(X, pd.DataFrame):
-            X_array = X.values
-        elif isinstance(X, np.ndarray):
-            X_array = X
+    def transform(self, X, y=None):
+        X, _, _ = validate_input(X, y, None, ignore_y=True)
+        return X[:, self.support]
 
-        X_filtered = X_array[:, self.support]
-        X_transformed = super().transform(X_filtered)
-        return X_transformed
-
-    def get_support(self):
-        return self.support
+    def get_support(self, indices=False):
+        return np.where(self.support)[0] if indices else self.support
 
 
-class AutoSMOTENC(SMOTENC):
-    """
-    SMOTENC with support for automatic categorical features identification.
+class DropByMissingRateCV(DropByMissingRate):
+    ceof_: ArrayLike
 
-    ALPHA
-    """
+    def __init__(self, alpha=0.05, cv=KFold(), **kwargs):
+        """Drops features missing more than a pre-defined rate via cross-validation.
 
-    def __init__(
-        self,
-        sampling_strategy: str = "auto",
-        k_neighbors: int = 5,
-        random_state: Optional[int] = None,
-        n_jobs: Optional[int] = None,
-    ):
+        Parameters
+        ----------
+        max_na_rate : float, optional
+            Maximum rate of missing samples after which the feature is discarded, by default .3
+        cv : _type_, optional
+            Crossvalidation strategy, by default KFold()
+        alpha : float, optional
+            Threshold of significance, by default .05
+        """
+        super(DropByMissingRateCV, self).__init__(**kwargs)
+        self.alpha = alpha
+        self.cv = cv
 
-        super().__init__(
-            categorical_features=[0],
-            sampling_strategy=sampling_strategy,
-            k_neighbors=k_neighbors,
-            random_state=random_state,
-            n_jobs=n_jobs,
-        )
-
-    def fit(
-        self,
-        X: Covariates,
-        y: Optional[Targets] = None,
-        groups: Optional[Groups] = None,
-    ):
-        _ = validate_input(X, y, groups, ignore_y=True, ignore_groups=True)
-        if isinstance(X, pd.DataFRame):
-            _X = X.copy()
-        else:
-            _X = pd.DataFrame(X)
-
-        uni_X = X.nunique()
-        idx = [ix for (ix, val) in enumerate(uni_X) if val <= 3]
-        super().set_params(categorical_features=idx)
-        super().fit(X, y=y, groups=groups)
+    def fit(self, X, y=None):
+        X, _, _ = validate_input(X, y, None, ignore_y=True)
+        support = []
+        for infold, _ in self.cv.split(X, y):
+            na_mask = np.isnan(X[infold, :])
+            local_rate = np.mean(na_mask, axis=0)
+            support.append(local_rate)
+        support = np.vstack(support)
+        pvals = ttest_1samp(support, self.max_na_rate, alternative="less").pvalue
+        self.coef_ = support
+        self.support = np.where(pvals <= self.alpha, True, False)
         return self
