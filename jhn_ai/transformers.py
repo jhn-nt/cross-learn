@@ -70,7 +70,7 @@ class DropColin(BaseEstimator, TransformerMixin):
     def pearson_coeff(X: ArrayLike) -> ArrayLike:
         covariance = np.cov(X, rowvar=False)
         sigma = np.expand_dims(np.std(X, axis=0), axis=1)
-        sigma = np.matmul(sigma, sigma.T)
+        sigma = np.matmul(sigma, sigma.T) + 1e-6
         return np.clip(covariance / sigma, -1.0, 1.0)
 
     @staticmethod
