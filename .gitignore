@@ -4,3 +4,4 @@ _raw/
 .ipynb_checkpoints/
 .devcontainer.json
 devbench.ipynb
+jhn_ai/__pycache__

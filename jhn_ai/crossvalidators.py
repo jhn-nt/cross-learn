@@ -45,7 +45,6 @@ class WalkForwardCV:
         self.test_size = test_size
 
     def _process_groups(self, groups: Groups):
-
         _groups = ut.make_array_from_listlike(groups)  # making groups a numpy array
         sorted_groups = np.arange(
             _groups.min(), _groups.max(), 1
@@ -195,7 +194,6 @@ class StackedCV:
             GroupKFold(n_splits=5),
         ],
     ):
-
         self.cv_list = cv_list
 
     def get_n_splits(self, X=None, y=None, groups=None):
@@ -268,7 +266,6 @@ class TimeSeriesKFold:
         gap: int = 0,
         max_train_size: Optional[int] = None,
     ):
-
         warn("Do not use this old class, trust me.")
         assert isinstance(n_splits, int)
         assert isinstance(min_train_size, int)

@@ -1,562 +1,344 @@
 import pandas as pd
 import numpy as np
-import sklearn as sk
-import imblearn as imsk
-
-from . import _utils as ut
-from ._types import Estimator, CrossValidator
-from ._controllers import validate_input
-from tqdm import tqdm
-
-
 from sklearn.model_selection import KFold
-from sklearn import metrics
-
-
+from tqdm import tqdm
+from importlib import import_module
+from typing import Dict, Union, Callable, Optional, Tuple, Any, List
+from numpy.typing import ArrayLike
 from functools import partial
-
-from typing import Union, List, Optional, Callable, Dict, Type, Any
-from numpy.typing import ArrayLike, DTypeLike
-from warnings import warn
-
-Covariates = Type[Union[ArrayLike, pd.DataFrame, List[List[float]]]]
-Targets = Type[Union[ArrayLike, pd.Series, List[float]]]
-Probabilites = Type[Union[ArrayLike, pd.DataFrame, List[List[float]]]]
-Groups = Type[Union[ArrayLike, DTypeLike, pd.Series, List[Any]]]
+from ._utils import _index_X, _index_y, _index_groups, hasparam, suppress_all_warnings
+from datetime import datetime
+from pathlib import Path
+import json
 
 
-def regression_scores(
-    y_true: Targets,
-    y_pred: Targets,
-    custom_scoring: Optional[Dict[str, Callable]] = None,
-    y_index: Optional[Union[pd.Series, DTypeLike]] = None,
-) -> pd.Series:
-    """
-    Computes a comprhensive list of regression scores.
+with open(Path(__file__).parent / "config.json", "r") as file:
+    CONFIG = json.load(file)
 
-    Parameters
-    ----------
-    y_true : Targets
-        Target values.
-    y_pred : Targets
-        Predicted values.
-    custom_scoring : Optional[Dict[str, Callable]], optional
-        Allows to include custom scoring functions.
-        Please note that the callable should have signature equal to:
-            func(y_true, y_pred, y_proba, y_index)
-        where:
-            - y_true: array like of ground truth labels.
-            - y_pred: binarized predictions from the model, ie the output of predict.
-            - y_proba: predicted probabilities, ie the output of predict_proba.
-            - y_index: index accompaigning labels, useful to perform aggreagtions.
-        The default is None.
-    y_index : Optional[Union[pd.Series, DTypeLike]], optional
-        Index accompaigning labels, useful to perform aggreagtions.
-        The default is None.
 
-    Returns
-    -------
-    pd.Series
-        Series with scores.
-    """
-    assert y_true.ndim == 1
-    assert y_pred.ndim == 1
-    assert len(y_pred) == len(y_true)
+def compile_scores(
+    config: Dict[str, Union[str, dict]],
+    y_true: ArrayLike,
+    estimations: Dict[str, ArrayLike],
+) -> Dict[str, Union[Callable, dict]]:
+    compiled_scores = {}
+    for category in config.keys():
+        compiled_scores[category] = {}
+        for key, item in config[category].items():
+            base_func = getattr(import_module(item["source"]), item["method"])
+            params = {**item["params"]}
+            params.update({"y_true": y_true})
 
-    try:
-        _regression_scores = {
-            "explained_variance": metrics.explained_variance_score,
-            "max_error": metrics.max_error,
-            "mean_absolute_error": metrics.mean_absolute_error,
-            "mean_squared_error": metrics.mean_squared_error,
-            "root_mean_squared_error": partial(
-                metrics.mean_squared_error, squared=False
-            ),
-            "mean_squared_log_error": metrics.mean_squared_log_error,
-            "median_absolute_error": metrics.median_absolute_error,
-            "r2": metrics.r2_score,
-            "mean_poisson_deviance": metrics.mean_poisson_deviance,
-            "mean_gamma_deviance": metrics.mean_gamma_deviance,
-            "mean_absolute_percentage_error": metrics.mean_absolute_percentage_error,
-        }
-    except:
-        warn(
-            f"""sklearn version found {sk.__version__}, 
-              consider updating to 0.24.2 or higher""",
-            category=UserWarning,
-        )
-        _regression_scores = {
-            "explained_variance": metrics.explained_variance_score,
-            "max_error": metrics.max_error,
-            "mean_absolute_error": metrics.mean_absolute_error,
-            "mean_squared_error": metrics.mean_squared_error,
-            "root_mean_squared_error": partial(
-                metrics.mean_squared_error, squared=False
-            ),
-            "mean_squared_log_error": metrics.mean_squared_log_error,
-            "median_absolute_error": metrics.median_absolute_error,
-            "r2": metrics.r2_score,
-            "mean_poisson_deviance": metrics.mean_poisson_deviance,
-            "mean_gamma_deviance": metrics.mean_gamma_deviance,
-        }
+            if hasparam(base_func, "y_score") and "y_score" in estimations.keys():
+                params.update({"y_score": estimations["y_score"]})
 
-    res = {}
-    for item in _regression_scores.items():
-        try:
-            res[item[0]] = item[1](y_true, y_pred)
-        except:
-            res[item[0]] = np.nan
+            if hasparam(base_func, "y_pred") and "y_pred" in estimations.keys():
+                params.update({"y_pred": estimations["y_pred"]})
 
-    if custom_scoring is not None:
-        for k, item in custom_scoring.items():
+            compiled_func = partial(base_func, **params)
+            compiled_scores[category].update({key: compiled_func})
+    return compiled_scores
+
+
+def execute_scores(
+    tree: Dict[str, Union[dict, Callable]]
+) -> Dict[str, Union[dict, ArrayLike]]:
+    exhausted_tree = {}
+    for key, item in tree.items():
+        if isinstance(item, dict):
+            exhausted_tree.update({key: execute_scores(item)})
+        else:
             try:
-                res[k] = item(y_true, y_pred, None, y_index)
-            except:
-                res[k] = np.nan
+                exhausted_tree.update({key: item()})
+            except Exception as e:
+                print(f"{key}:{str(e)}")
+    return exhausted_tree
 
-    return pd.Series(res)
+
+def train_step(
+    model,
+    X: ArrayLike,
+    y: ArrayLike,
+    groups: Optional[ArrayLike],
+    tracing_func: Optional[Callable] = None,
+    **fit_kwargs,
+) -> Tuple[Any, Any]:
+    if hasparam(model.fit, "groups"):
+        fit_kwargs.update({"groups": groups})
+
+    trained_model = model.fit(X, y, **fit_kwargs)
+    trace = tracing_func(trained_model) if tracing_func else None
+    return trained_model, trace
 
 
-def classification_scores(
-    y_true: Targets,
-    y_pred: Targets,
-    y_proba: Probabilites,
-    custom_scoring: Optional[Dict[str, Callable]] = None,
-    y_index: Optional[Union[pd.Series, DTypeLike]] = None,
-):
-    """
-    Computes a comprhensive list of classification scores.
+def inject_leaves(tree: dict, leaf: dict) -> dict:
+    injected_tree = {}
+    for key, item in tree.items():
+        if isinstance(item, dict):
+            injected_tree.update({key: inject_leaves(item, leaf)})
+        else:
+            injected_tree.update({key: item, **leaf})
+    return injected_tree
+
+
+def test_step(
+    trained_model, X: ArrayLike, methods: Dict[str, str]
+) -> Dict[str, ArrayLike]:
+    inference = {}
+    for method, score in methods.items():
+        if hasattr(trained_model, method):
+            inference[score] = getattr(trained_model, method)(X)
+    return inference
+
+
+def leaf_to_frame(
+    leaf: dict, ignore: Optional[List[str]] = None
+) -> Union[pd.DataFrame, pd.Series, dict]:
+    """Transforms one-level-deep branches of a dictionary into series or dataframes.
+
+    Particularly, if a branch has items like:
+    1. Arraylike: a dataframe is returned where each key becomes a column
+    2. floats: a series where each key becomes the value of the index
+    3. dict: repeats the above untils a one-level-deep branch is reached.
+
 
     Parameters
     ----------
-    y_true : Targets
-        Target values.
-    y_pred : Targets
-        Predicted values.
-    y_proba : Probabilites
-        Estimated probabilities for each class.
-    custom_scoring : Optional[Dict[str, Callable]], optional
-        Allows to include custom scoring functions.
-        Please note that the callable should have signature equale to:
-            func(y_true, y_pred, y_proba, y_index)
-        where:
-            - y_true: array like of ground truth labels.
-            - y_pred: binarized predictions from the model, ie the output of predict.
-            - y_proba: predicted probabilities, ie the output of predict_proba.
-            - y_index: index accompaigning labels, useful to perform aggreagtions.
-        The default is None.
-    y_index : Optional[Union[pd.Series, DTypeLike]], optional
-        Index accompaigning labels, useful to perform aggreagtions.
-        The default is None.
+    leaf : dict
+    ignore : Optional[List[str]], optional
+        Ignores particular keys, by default None
 
     Returns
     -------
-    pd.DataFrame
-        Dataframe where each column represent a class.
+    Union[pd.DataFrame, pd.Series, dict]
+        Pandas converted branches dictionary.
     """
-    assert y_true.ndim == 1
-    assert y_pred.ndim == 1
-    assert len(y_pred) == len(y_true)
 
-    _classification_scores_per_class = {
-        "f1": partial(metrics.f1_score, average=None),
-        "recall": partial(metrics.recall_score, average=None),
-        "precision": partial(metrics.precision_score, average=None),
-        "support": ut.support,
-    }
+    def is_leaf_instance(tree, instance, ignore=None):
+        ignore = [] if ignore is None else ignore
+        instances = [
+            isinstance(tree[key], instance) for key in tree.keys() if key not in ignore
+        ]
+        return all(instances)
 
-    _classification_aucs_per_class = {
-        "roc_auc_ovr": ut.auc_multiclass,
-    }
-
-    res = {}
-    for item in _classification_scores_per_class.items():
-        try:
-            res[item[0]] = item[1](y_true, y_pred)
-        except:
-            res[item[0]] = np.nan
-
-    for item in _classification_aucs_per_class.items():
-        try:
-            res[item[0]] = item[1](y_true, y_proba)
-        except:
-            res[item[0]] = np.nan
-
-    if custom_scoring is not None:
-        for k, item in custom_scoring.items():
-            res[k] = item(y_true, y_pred, y_proba, y_index)
-
-    scores_per_class = pd.DataFrame(res, index=np.unique(y_true))
-    scores_per_class = scores_per_class.T
-
-    return scores_per_class
+    if is_leaf_instance(leaf, np.ndarray, ignore):
+        leaf_df = pd.DataFrame(leaf)
+    elif is_leaf_instance(leaf, float, ignore):
+        leaf_df = pd.Series(leaf)
+    elif is_leaf_instance(leaf, dict, ignore):
+        leaf_df = {key: leaf_to_frame(item, ignore) for key, item in leaf.items()}
+    else:
+        raise ValueError("'leaf' can only be one of [dict,np.ndarray,float]")
+    return leaf_df
 
 
-def classification_metrics(
-    estimator: Estimator,
-    X: Covariates,
-    y: Targets,
-    fpr_interp: Union[List[float], ArrayLike] = np.arange(0, 1.05, 0.05),
-    as_dataframe: bool = True,
-    custom_scoring: Optional[Dict[str, Callable]] = None,
-    y_index: Optional[Union[pd.Series, DTypeLike]] = None,
-):
-    """
-    Given a trained classifier, computes all sklearn classification metrics.
-
-    Lazy wrapper of classification scores.
+def leaf_to_frame_from_list(
+    list_of_leaves: List[dict], ignore: Optional[List[str]] = None
+) -> List[dict]:
+    """Maps 'leaf_to_frame' to each element of list 'list_of_leaves'.
 
     Parameters
     ----------
-    estimator : Estimator
-        sklearn-like classifier.
-    X : Covariates
-        Input values.
-    y : Targets
-        Target values.
-    fpr_interp : Union[List[float], ArrayLike], optional
-        ROC interpolation granularity. The default is np.arange(0, 1.05, 0.05).
-    as_dataframe : bool, optional
-        if True returns the output as a dataframe, otherwise a tuple. The default is True.
-    custom_scoring : Optional[Dict[str, Callable]], optional
-        Allows to include custom scoring functions.
-        Please note that the callable should have signature equale to:
-            func(y_true, y_pred, y_proba, y_index)
-        where:
-            - y_true: array like of ground truth labels.
-            - y_pred: binarized predictions from the model, ie the output of predict.
-            - y_proba: predicted probabilities, ie the output of predict_proba.
-            - y_index: index accompaigning labels, useful to perform aggreagtions.
-        The default is None.
-    y_index : Optional[Union[pd.Series, DTypeLike]], optional
-        Index accompaigning labels, useful to perform aggreagtions.
-        The default is None.
+    list_of_leaves : List[dict]
+    ignore : Optional[List[str]], optional
+        Ignores particular keys, by default None
 
     Returns
     -------
-    scores : Union[pd.DataFrame, tuple]
-        DESCRIPTION.
-    roc : pd.DataFrame
-        DESCRIPTION.
+    list[dict]
     """
-
-    y_pred = estimator.predict(X)
-    y_prob = estimator.predict_proba(X)
-
-    _y = ut.squeeze_targets_if_needed(y)
-    _y_pred = ut.squeeze_targets_if_needed(y_pred)
-
-    scores = classification_scores(
-        _y, _y_pred, y_prob, custom_scoring=custom_scoring, y_index=y_index
-    )
-    roc = ut.compute_roc(y, y_prob, fpr_interp=fpr_interp)
-
-    if as_dataframe:
-        pass
-    else:
-        scores = tuple(scores.values)
-    return scores, y_pred, roc
+    return list(map(partial(leaf_to_frame, ignore=ignore), list_of_leaves))
 
 
-# METRIC
-def regression_metrics(
-    estimator: Estimator,
-    X: Covariates,
-    y: Targets,
-    as_dataframe: bool = True,
-    custom_scoring: Optional[Dict[str, Callable]] = None,
-    y_index: Optional[Union[pd.Series, DTypeLike]] = None,
-):
-    """
-    Given a trained regressor, computes all sklearn regression metrics.
+def merge_nested_results(
+    leaf_1: Union[pd.DataFrame, pd.Series], leaf_2: Union[pd.DataFrame, pd.Series]
+) -> Union[pd.DataFrame, pd.Series]:
+    """Concatenates 'leaf_1' and 'leaf_2'.
 
-    Lazy wrapper of regression scores.
+    Lazy wrapper that applies 'pd.concat' depending on whether the inputs as 'pd.Series' or 'pd.DataFrame'.
 
     Parameters
     ----------
-    estimator : Estimator
-        sklearn-like classifier.
-    X : Covariates
-        Input values.
-    y : Targets
-        Target values.
-    as_dataframe : bool, optional
-        if True returns the output as a dataframe, otherwise a tuple. The default is True.
-    custom_scoring : Optional[Dict[str, Callable]], optional
-        Allows to include custom scoring functions.
-        Please note that the callable should have signature equale to:
-            func(y_true, y_pred, y_proba, y_index)
-        where:
-            - y_true: array like of ground truth labels.
-            - y_pred: binarized predictions from the model, ie the output of predict.
-            - y_proba: predicted probabilities, ie the output of predict_proba.
-            - y_index: index accompaigning labels, useful to perform aggreagtions.
-        The default is None.
-    y_index : Optional[Union[pd.Series, DTypeLike]], optional
-        Index accompaigning labels, useful to perform aggreagtions.
-        The default is None.
+    leaf_1 : Union[pd.DataFrame,pd.Series]
+    leaf_2 : Union[pd.DataFrame,pd.Series]
 
     Returns
     -------
-    scores : TYPE
-        DESCRIPTION.
-
+    Union[pd.DataFrame,pd.Series]
     """
-    # to-do: add support for lorenz curves
-    y_pred = estimator.predict(X)
-
-    _y = ut.squeeze_targets_if_needed(y)
-    _y_pred = ut.squeeze_targets_if_needed(y_pred)
-
-    scores = regression_scores(
-        _y, _y_pred, custom_scoring=custom_scoring, y_index=y_index
-    )
-    if as_dataframe:
-        pass
-    else:
-        scores = tuple(scores.values)
-    return scores, y_pred, None
+    if isinstance(leaf_1, pd.DataFrame) and isinstance(leaf_2, pd.DataFrame):
+        merged_leaf = pd.concat([leaf_1, leaf_2], axis=0).reset_index(drop=True)
+    elif isinstance(leaf_1, pd.Series) and isinstance(leaf_2, pd.Series):
+        merged_leaf = pd.concat([leaf_1, leaf_2], axis=1).T
+    elif isinstance(leaf_1, pd.DataFrame) and isinstance(leaf_2, pd.Series):
+        merged_leaf = pd.concat([leaf_1, leaf_2.to_frame().T], axis=0).reset_index(
+            drop=True
+        )
+    return merged_leaf
 
 
-@ut.suppress_all_warnings
-def supervised_crossvalidation(
-    estimator: Estimator,
-    X: Covariates,
-    y: Targets,
-    groups: Optional[Groups] = None,
-    cv: CrossValidator = KFold(),
-    paradigm: str = "auto",
-    collect_func: Optional[Callable] = None,
-    custom_scoring: Optional[Dict[str, Callable]] = None,
-    inner_groups: Optional[Groups] = None,
-    fit_kwargs: dict = {},
-    verbose: bool = True,
-    fpr_interp: Union[ArrayLike, List[float]] = np.arange(0, 1.05, 0.05),
-    disable_progressbar: bool = False,
-):
-    """
-    Returns most sklearn-supported estimator evaluation metrics using crossvalidation.
-
-    A highlevel flexible method to easily evaluate complex sklearn-supported models.
-
-    This method aims to aggregate all sparse and fragmented crossvalidation functions
-    in sklearn in one single wrapper.
-    It doesn not yet suppot non iid samples and aggregation scores (ie rank).
+def zip2dicts(tree_1: dict, tree_2: dict, merge_func: Callable = lambda *x: x) -> dict:
+    """Given two dictionaries with equal keys and equal types of items, returns a dictionary with same keys as the input and with concatenated items.
 
     Parameters
     ----------
-    estimator : Estimator
-        sklearn-like estimator.
-    X : Covariates
-        Input values.
-    y : Targets
-        Target values.
-    groups : Optional[Groups], optional
-        Group labels for the samples used while splitting the dataset into train/test set.
-        Assigned both in the inner and outer loop when inner_groups is None.
-        The default is None.
-    cv : CrossValidator, optional
-        Sklearn like CV itearator. Any object supporting the method split(X, y, groups).
-        The default is KFold().
-    paradigm : str, optional
-        Paradigm of the problem, must be either {'auto','classification','regression'}.
-        If 'auto', automatically determines the nature of the problem.
-        The default is "auto".
-    collect_func : Optional[Callable], optional
-        Callable inspecting some property of the estimator after training.
-        The signature of the function should be func(estimator), where the estimator
-        is intrafold-fitted.
-        The default is None.
-    custom_scoring : Optional[Dict[str, Callable]], optional
-        By default supervised_crossvalidation uses the default metric from
-        classification_scores when paradigm is classification and regression_scores
-        when regression. To add custom scores pass a dictionsary of callables.
-        Please note that the callable should have signature equal to:
-            func(y_true, y_pred, y_proba, y_index)
-        where:
-            - y_true: array like of ground truth labels.
-            - y_pred: binarized predictions from the model, ie the output of predict.
-            - y_proba: predicted probabilities, ie the output of predict_proba.
-            - y_index: index accompaigning labels, useful to perform aggreagtions.
-        The default is None.
-    inner_groups : Optional[Groups], optional
-        Group labels for the samples used while splitting the dataset into train/test set
-        during nested crossvalidation. inner_groups allows for complex stacked crossvalidation
-        strategies.If None, inner_groups is set equal to groups.
-        The default is None.
-    fit_kwargs : dict, optional
-        Accessory arguments to pass to the fit method. Example cases are passing
-        weights of samples, earlystopping in LGBMClassifier and other non-strickly
-        sklearn like classifiers.
-        If estimator is a pipeline, fit params should be preceeded by
-        the object name ie 'cl__sample_weights': [10, 15...10]
-        The defauls is {}.
-    verbose : bool, optional
-        Does nothing, it will be deprecated.
-        The default is True.
-    fpr_interp : Union[ArrayLike, List[float]], optional
-        If a classification problem, it defines the resolution of the ROCs.
-        The default is np.arange(0, 1.05, 0.05).
-    disable_progressbar : bool, optional
-        If set to False shows progressbar as crossvalidation goes on.
-        Default is False.
-    suppress_warnings: bool, optional.
-        Inherited from the decorator. Allows to suppress all warnings regardless.
-        Default is True.
+    tree_1 : dict
+    tree_2 : dict
+    merge_func : Callable, optional
+        Function defining how to merge the leaves of tree_1 and tree_2, by default lambda*x:x
 
     Returns
     -------
-    scores : pd.DataFrame
-        Dataframe containing folds scores.
-    rocs : pd.DataFrame
-        TPR and FPR in each fold.
-    predictions : pd.DataFrame
-        Fold-wise predictions.
-    cv_collect : list
-        Fold wise outputs of collect_func, None if collect_func is None.
-    fold_index_map : List[dict]
-        List of dictonaries containing the index of samples for each fold.
-
-    Raises
-    ------
-    paradigm must be regression, classification or auto
-        Raised if anything different from "auto","classification" or "regression" is set as paradigm.
+    dict
+        Merged tree.
     """
+    merged_tree = {}
+    for (key1, item1), (_, item2) in zip(tree_1.items(), tree_2.items()):
+        if isinstance(item1, dict) and isinstance(item2, dict):
+            # if branch, nest operation untill leaf is reached
+            merged_tree[key1] = zip2dicts(item1, item2, merge_func=merge_func)
+        else:
+            # if leaves, merge them
+            merged_tree[key1] = merge_func(item1, item2)
+    return merged_tree
 
-    # to-do: for regression add lorenz-curves as equivalent roc curves in classification.
-    # all input assertion should be done in an ad-hoc method
-    _ = validate_input(X, y, groups, ignore_groups=True)
-    _ = validate_input(X, y, inner_groups, ignore_groups=True)
 
-    if inner_groups is None:
-        # if inner_groups is empty, inherits groups
-        inner_groups = groups
+def zip_dicts(*trees: List[dict], merge_func: Callable = lambda *x: x) -> dict:
+    """Extension of 'zip2dicts' to an iterable of dictionaries.
 
-    # handling functions to use based on the nature of the problem.
-    if paradigm == "auto":
-        _paradigm = ut.determine_paradigm(y)
-    else:
-        _paradigm = paradigm
+    Current implementation may be taxing on memory for large inputs.
 
-    if _paradigm == "classification":
-        scoring_func = partial(classification_metrics, fpr_interp=fpr_interp)
-        output_func = ut.crossvalidation_output_for_classification
-    elif _paradigm == "regression":
-        scoring_func = regression_metrics
-        output_func = ut.crossvalidation_output_for_regression
-    else:
-        raise ValueError("paradigm must be regression, classification or auto")
+    Parameters
+    ----------
+    merge_func : Callable, optional
+        Function defining how to merge the leaves of tree_1 and tree_2, by default lambda*x:x
 
-    # preparing the classifier properties saver if requested.
-    cv_collect = []
+    Returns
+    -------
+    dict
+        Merged dictionary.
+    """
+    merged_tree = trees[0]
+    for current_tree in trees[1:]:
+        merged_tree = zip2dicts(merged_tree, current_tree, merge_func=merge_func)
+    return merged_tree
 
-    # preparing all savers.
-    train_trace = {"scores": [], "rocs": [], "predictions": []}
-    test_trace = {"scores": [], "rocs": [], "predictions": []}
-    fold_index_map = []
-    n_splits = cv.get_n_splits(X=X, y=y, groups=groups)
 
-    for fold, (train_ix, test_ix) in tqdm(
+def explode_tree_of_scores_into_dataframes(
+    scores: List[Dict[str, Union[dict, float, ArrayLike]]]
+) -> Dict[str, pd.DataFrame]:
+    """Converts jsonable dictionaties into pandas dataframe.
+
+    Given a list of dictionaries 'scores', where each leaf is either an Arraylike or float,
+    returns a single dictionary where all leaves are combained into dataframes.
+    This roughly equates to a transformation:
+    '[{x:1,y:1},{x:2,y2}]->{x:[1,2],y:[1,2]}'
+
+
+    Parameters
+    ----------
+    scores : List[Dict[str, Union[dict, float, ArrayLike]]]
+
+    Returns
+    -------
+    Dict[str, pd.DataFrame]
+    """
+    leaves = leaf_to_frame_from_list(scores, ignore=["fold", "side", "name"])
+    return zip_dicts(*leaves, merge_func=merge_nested_results)
+
+
+def name_func(name) -> str:
+    return name if name else f"model_{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}"
+
+
+def time_func():
+    return datetime.datetime.now()
+
+
+@suppress_all_warnings
+def crossvalidation(
+    config,
+    mappings,
+    model,
+    X,
+    y,
+    groups=None,
+    cv=KFold(),
+    tracing_func=None,
+    custom_scores=None,
+    name: str = None,
+    progress_bar: bool = True,
+    **fit_kwargs,
+):
+    fold_scores = []
+    fold_traces = {}
+    fold_indexes = {}
+
+    n_splits = cv.get_n_splits(X, y, groups)
+    pbar = tqdm(
         enumerate(cv.split(X, y, groups=groups)),
         total=n_splits,
-        disable=disable_progressbar,
-    ):
-        # splitting intrafold train and test set
-        train_data = ut._index_X(X, train_ix), ut._index_y(y, train_ix)
-        test_data = ut._index_X(X, test_ix), ut._index_y(y, test_ix)
+        disable=not (progress_bar),
+        desc=name,
+    )
 
-        # splitting intrafold groups
-        groups_train = ut._index_groups(inner_groups, train_ix)
+    for fold, (train_ix, test_ix) in pbar:
+        # slice data according to validations folds
+        X_train, y_train, groups_train = (
+            _index_X(X, train_ix),
+            _index_y(y, train_ix),
+            _index_groups(groups, train_ix),
+        )
+        X_test, y_test, groups_test = (
+            _index_X(X, test_ix),
+            _index_y(y, test_ix),
+            _index_groups(groups, test_ix),
+        )
 
-        # inheriting original indexes
-        train_index = ut._inherit_index(y, train_ix)
-        test_index = ut._inherit_index(y, test_ix)
-        fold_index_map.append({"fold": fold, "train": train_index, "test": test_index})
+        # model training
+        trained_model, trace = train_step(
+            model,
+            X_train,
+            y_train,
+            groups_train,
+            tracing_func=tracing_func,
+            **fit_kwargs,
+        )
 
-        if ut.hasparam(estimator.fit, "groups"):
-            # some classifiers don't support the groups keyword during training
-            _ = estimator.fit(*train_data, groups=groups_train, **fit_kwargs)
-        else:
-            _ = estimator.fit(*train_data, **fit_kwargs)
+        # scoring train set
+        train_inferences = test_step(trained_model, X_train, mappings)
+        compiled_train_scores = compile_scores(config, y_train, train_inferences)
+        train_scores = execute_scores(compiled_train_scores)
+        train_scores = inject_leaves(
+            train_scores,
+            {"fold": fold, "side": "train", "name": name_func(name)},
+        )  # ensures dictionary is 'columns' oriented
 
-        if collect_func:
-            # storing some classifier property if requested
-            cv_collect.append(collect_func(estimator))
+        # scoring test set
+        test_inferences = test_step(trained_model, X_test, mappings)
+        compiled_test_scores = compile_scores(config, y_test, test_inferences)
+        test_scores = execute_scores(compiled_test_scores)
+        test_scores = inject_leaves(
+            test_scores,
+            {"fold": fold, "side": "test", "name": name_func(name)},
+        )  # ensures dictionary is 'columns' oriented
 
-        for _set, _trace, _index in zip(
-            [train_data, test_data],
-            [train_trace, test_trace],
-            [train_index, test_index],
-        ):
-            # collecting scores in the train and test set of the fold
-            _scores, _predictions, _rocs = scoring_func(
-                estimator, *_set, custom_scoring=custom_scoring, y_index=_index
-            )
-            _trace["scores"].append(_scores)
-            _trace["rocs"].append(_rocs)
-            _trace["predictions"].append([_set[1], _predictions])
+        # storing traces and scores
+        fold_scores += [train_scores, test_scores]
+        fold_traces[fold] = trace
+        fold_indexes[fold] = {
+            "train": {"ix": train_ix, **train_inferences},
+            "test": {"ix": test_ix, **test_inferences},
+        }
 
-    output = output_func(train_trace, test_trace, fold_index_map)
-    # rocs is None if regression.
-    scores, rocs, predictions = output
-
-    return scores, rocs, predictions, cv_collect, fold_index_map
+    return (
+        explode_tree_of_scores_into_dataframes(fold_scores),
+        fold_traces,
+        fold_indexes,
+    )
 
 
-@ut.suppress_all_warnings
-def find_inertia_elbow(
-    estimator: Estimator,
-    X: Covariates,
-    max_clusters: int,
-):
-    """
-    Given a Kmeans-based estimator and input data X, identifies the optimal
-    number of clusters by the elbow of inertia method.
-
-    Parameters
-    ----------
-    estimator : estimator object
-        sklearn like estimator.
-    X : Covariates
-        Input data.
-    max_clusters : int
-        Maximum number to clusters to investigate.
-    suppress_warnings: bool, optional.
-        Inherited from the decorator. Allows to suppress all warnings regardless.
-        Default is True.
-
-    Returns
-    -------
-    k_opt : int
-        Optimal number of clusters.
-    scores : array like
-        Inertia associated to each cluster size in k_schedule.
-    k_schedule : array like
-        List of cluster sizes tested.
-
-    """
-
-    if isinstance(estimator, sk.pipeline.Pipeline) | isinstance(
-        estimator, imsk.pipeline.Pipeline
-    ):
-        is_pipeline = True
-    else:
-        is_pipeline = False
-
-    scores = []
-    k_schedule = np.arange(2, max_clusters, 1)
-    for k in k_schedule:
-        if is_pipeline:
-            estimator[-1].set_params(n_clusters=k)
-        else:
-            estimator.set_params(n_clusters=k)
-
-        _ = estimator.fit_predict(X)
-
-        if is_pipeline:
-            scores.append(estimator[-1].inertia_)
-        else:
-            scores.append(estimator.inertia_)
-    scores = np.array(scores)
-    k_opt = ut.elbow_triangle(k_schedule, scores)
-    return k_opt, scores, k_schedule
+def crossvalidate_classification(*args, **kwargs):
+    return crossvalidation(
+        CONFIG["CLASSIFICATION"], CONFIG["MAPPINGS"], *args, **kwargs
+    )

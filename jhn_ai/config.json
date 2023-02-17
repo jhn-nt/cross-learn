@@ -1,0 +1,94 @@
+{
+  "MAPPINGS": {
+    "predict": "y_pred",
+    "predict_proba": "y_score"
+  },
+  "CLASSIFICATION": {
+    "metrics": {
+      "class": {
+        "method": "class_index",
+        "params": {},
+        "source": "jhn_ai.metrics"
+      },
+      "f1": {
+        "method": "f1_score",
+        "params": {
+          "average": null
+        },
+        "source": "sklearn.metrics"
+      },
+      "recall": {
+        "method": "recall_score",
+        "params": {
+          "average": null
+        },
+        "source": "sklearn.metrics"
+      },
+      "precision": {
+        "method": "precision_score",
+        "params": {
+          "average": null
+        },
+        "source": "sklearn.metrics"
+      },
+      "auc": {
+        "method": "roc_auc_score",
+        "params": {
+          "average": null,
+          "multi_class": "ovr"
+        },
+        "source": "sklearn.metrics"
+      },
+      "support": {
+        "method": "support",
+        "params": {},
+        "source": "jhn_ai.metrics"
+      }
+    },
+    "statistics": {
+      "accuracy": {
+        "method": "accuracy_score",
+        "params": {},
+        "source": "sklearn.metrics"
+      },
+      "normalized_accuracy": {
+        "method": "accuracy_score",
+        "params": {
+          "normalize": true
+        },
+        "source": "sklearn.metrics"
+      },
+      "balanced_accuracy": {
+        "method": "balanced_accuracy_score",
+        "params": {
+          "adjusted": false
+        },
+        "source": "sklearn.metrics"
+      },
+      "adjusted_balanced_accuracy": {
+        "method": "balanced_accuracy_score",
+        "params": {
+          "adjusted": true
+        },
+        "source": "sklearn.metrics"
+      }
+    },
+    "rankings": {
+      "roc_curves": {
+        "method": "roc_curve_ovr",
+        "params": {},
+        "source": "jhn_ai.metrics"
+      },
+      "pr_curves": {
+        "method": "pr_curve_ovr",
+        "params": {},
+        "source": "jhn_ai.metrics"
+      },
+      "decision_curves": {
+        "method": "decision_curve",
+        "params": {},
+        "source": "jhn_ai.metrics"
+      }
+    }
+  }
+}

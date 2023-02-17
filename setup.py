@@ -8,10 +8,8 @@ setup(
     packages=["jhn_ai"],
     install_requires=[
         "scikit-learn>=1.2.1",
-        "imbalanced-learn>=0.10.1",
         "numpy>=1.23.3",
-        "pandas",
-        "tqdm",
-        "scipy>=1.10.0",
+        "pandas>=1.4.3",
+        "tqdm>=4.64.1",
     ],
 )
