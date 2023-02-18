@@ -86,3 +86,12 @@ def decision_curve(
         )
         net_benefit_thresholds[i] = net_benefit
     return net_benefit_thresholds
+
+
+def roc_auc_score(y_true: ArrayLike, y_score: ArrayLike, *args, **kwargs) -> ArrayLike:
+    if y_score.shape[1] == 2:
+        auc = metrics.roc_auc_score(y_true, y_score[..., 1], *args, **kwargs)
+        output = np.array([auc, auc])
+    else:
+        output = metrics.roc_auc_score(y_true, y_score, *args, **kwargs)
+    return output

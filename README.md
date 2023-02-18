@@ -1,5 +1,5 @@
 # JHN_AI
-## General purpose ML dev tools.
+## General purpose statistical learning dev tools.
 
 Libraires I have been developing during the years on personal projects.
 After noticing I was re-writing time after time the same routines for the same problems I have decided to write them one last time for good.  
@@ -27,20 +27,21 @@ The main features I focused on are:
 The code is functionally split in 3 separate modules: _crossvalidators_, _evaluation_ and _transformers_.
 
 ### _evaluation_ module
-Contains the ```supervised_crossvalidation``` method, an all-in-one wrapper to obtain crossvalidation and nested crossvalidation scores with any sklearn-like model or pipeline, but most importantly allows for _intra-fold dependencies_ during crossvalidation (ie nested crossvalidation with GroupKFold or similar).
+Contains the `crossvalidate_classification` and `crossvalidate_regression` methods, an all-in-one wrappers to obtain crossvalidation and nested crossvalidation scores with any sklearn-like model or pipeline, but most importantly allows for _intra-fold dependencies_ during crossvalidation (ie nested crossvalidation with GroupKFold or similar).
 
-```find_inertia_elbow``` is another handy method for unsupervised inertia based clustering models (aka KMeans etc etc). It allows for quick identification of the inertia elbo using the triangle method.
+`find_inertia_elbow` is another handy method for unsupervised inertia based clustering models (aka KMeans etc etc). It allows for quick identification of the inertia elbo using the triangle method.
 
 ### _crossvalidators_ module
-The ```crossvalidators``` module introduces two new crossvalidators:
-* ```WalkForwardCV```: Similar to sklearn TimeSeriesSplit in concept, but extended to support for group-wise time splitting. 
-* ```StackedCV```: Combines the effect of different validation models. For example, if you need to validate data of different costumers with different purchase habits, you can combine GroupKFold and StratifiedKFold within ```StackedCV```. 
+The `crossvalidators` module introduces two new crossvalidators:
+* `WalkForwardCV`: Similar to sklearn TimeSeriesSplit in concept, but extended to support for group-wise time splitting. 
+* `StackedCV`: Combines the effect of different validation models. For example, if you need to validate data of different costumers with different purchase habits, you can combine GroupKFold and StratifiedKFold within ```StackedCV```. 
 
 ### _transformers_ module
 Revisions of some vanilla sklearn transformers with some new functionality:  
-* ```RateImputer```: Drop columns missing more than user-predifined rate and imputes the rest. 
-* ```ColinearityRemover```: An unsupervised feature filtering model which removes correlated features.
-* ```IsolationForest```: sklearn IsolationForest made compatible with pipelines and crossvalidation routines.
+* `DropColin`: Unsupervised filtering of correlated features. 
+* `DropColinCV`: Crossvalidated extension of `DropColin`. 
+* `DropByMissingRate`: Filters out features missing more than a predefined thershold.
+* `DropByMissingRateCV`: Crossvalidated extension of `DropByMissingRate`. 
 
 ## Installation Notes:
 

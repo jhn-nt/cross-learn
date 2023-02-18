@@ -151,7 +151,8 @@ def leaf_to_frame_from_list(
 
 
 def merge_nested_results(
-    leaf_1: Union[pd.DataFrame, pd.Series], leaf_2: Union[pd.DataFrame, pd.Series]
+    leaf_1: Union[pd.DataFrame, pd.Series],
+    leaf_2: Union[pd.DataFrame, pd.Series],
 ) -> Union[pd.DataFrame, pd.Series]:
     """Concatenates 'leaf_1' and 'leaf_2'.
 
@@ -225,7 +226,7 @@ def zip_dicts(*trees: List[dict], merge_func: Callable = lambda *x: x) -> dict:
 
 
 def explode_tree_of_scores_into_dataframes(
-    scores: List[Dict[str, Union[dict, float, ArrayLike]]]
+    scores: List[Dict[str, Union[dict, float, ArrayLike]]],
 ) -> Dict[str, pd.DataFrame]:
     """Converts jsonable dictionaties into pandas dataframe.
 
@@ -239,12 +240,26 @@ def explode_tree_of_scores_into_dataframes(
     ----------
     scores : List[Dict[str, Union[dict, float, ArrayLike]]]
 
+
     Returns
     -------
     Dict[str, pd.DataFrame]
     """
-    leaves = leaf_to_frame_from_list(scores, ignore=["fold", "side", "name"])
-    return zip_dicts(*leaves, merge_func=merge_nested_results)
+
+    def post_process_indexes(
+        tree: Dict[str, Union[dict, pd.DataFrame]], index: List[str]
+    ) -> Dict[str, Union[dict, pd.DataFrame]]:
+        processed_tree = {}
+        for key, item in tree.items():
+            if isinstance(item, dict):
+                processed_tree[key] = post_process_indexes(item, index)
+            else:
+                processed_tree[key] = item.set_index(index)
+        return processed_tree
+
+    leaves = leaf_to_frame_from_list(scores, ignore=["name", "fold", "side"])
+    results = zip_dicts(*leaves, merge_func=merge_nested_results)
+    return post_process_indexes(results, index=["name", "fold", "side"])
 
 
 def name_func(name) -> str:
@@ -274,6 +289,7 @@ def crossvalidation(
     fold_traces = {}
     fold_indexes = {}
 
+    name = name_func(name)
     n_splits = cv.get_n_splits(X, y, groups)
     pbar = tqdm(
         enumerate(cv.split(X, y, groups=groups)),
@@ -311,7 +327,7 @@ def crossvalidation(
         train_scores = execute_scores(compiled_train_scores)
         train_scores = inject_leaves(
             train_scores,
-            {"fold": fold, "side": "train", "name": name_func(name)},
+            {"fold": fold, "side": "train", "name": name},
         )  # ensures dictionary is 'columns' oriented
 
         # scoring test set
@@ -320,7 +336,7 @@ def crossvalidation(
         test_scores = execute_scores(compiled_test_scores)
         test_scores = inject_leaves(
             test_scores,
-            {"fold": fold, "side": "test", "name": name_func(name)},
+            {"fold": fold, "side": "test", "name": name},
         )  # ensures dictionary is 'columns' oriented
 
         # storing traces and scores
@@ -342,3 +358,7 @@ def crossvalidate_classification(*args, **kwargs):
     return crossvalidation(
         CONFIG["CLASSIFICATION"], CONFIG["MAPPINGS"], *args, **kwargs
     )
+
+
+def crossvalidate_regression(*args, **kwargs):
+    return crossvalidation(CONFIG["REGRESSION"], CONFIG["MAPPINGS"], *args, **kwargs)

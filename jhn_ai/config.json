@@ -37,7 +37,7 @@
           "average": null,
           "multi_class": "ovr"
         },
-        "source": "sklearn.metrics"
+        "source": "jhn_ai.metrics"
       },
       "support": {
         "method": "support",
@@ -88,6 +88,42 @@
         "method": "decision_curve",
         "params": {},
         "source": "jhn_ai.metrics"
+      }
+    }
+  },
+  "REGRESSION": {
+    "statistics": {
+      "mse": {
+        "method": "mean_squared_error",
+        "params": {},
+        "source": "sklearn.metrics"
+      },
+      "rmse": {
+        "method": "mean_squared_error",
+        "params": {
+          "squared": false
+        },
+        "source": "sklearn.metrics"
+      },
+      "explained_variance": {
+        "method": "explained_variance_score",
+        "params": {},
+        "source": "sklearn.metrics"
+      },
+      "r2": {
+        "method": "r2_score",
+        "params": {},
+        "source": "sklearn.metrics"
+      },
+      "max_error": {
+        "method": "max_error",
+        "params": {},
+        "source": "sklearn.metrics"
+      },
+      "median_absolute_error": {
+        "method": "median_absolute_error",
+        "params": {},
+        "source": "sklearn.metrics"
       }
     }
   }
