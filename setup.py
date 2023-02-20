@@ -1,12 +1,12 @@
 from distutils.core import setup
 
 setup(
-    name="jhn_ai",
-    version="2.0",
-    description="extended validation of sklearn models",
+    name="cross-learn",
+    version="1.0",
+    description="extensive scoring of crossvalidation loops.",
     author="jhn-nt",
-    packages=["jhn_ai"],
-    package_data={"jhn_ai": ["config.json"]},
+    packages=["crlearn"],
+    package_data={"crlearn": ["config.json"]},
     install_requires=[
         "scikit-learn>=1.2.1",
         "numpy<=1.24,>=1.18",

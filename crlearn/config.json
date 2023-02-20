@@ -8,7 +8,7 @@
       "class": {
         "method": "class_index",
         "params": {},
-        "source": "jhn_ai.metrics"
+        "source": "crlearn.metrics"
       },
       "f1": {
         "method": "f1_score",
@@ -37,12 +37,12 @@
           "average": null,
           "multi_class": "ovr"
         },
-        "source": "jhn_ai.metrics"
+        "source": "crlearn.metrics"
       },
       "support": {
         "method": "support",
         "params": {},
-        "source": "jhn_ai.metrics"
+        "source": "crlearn.metrics"
       }
     },
     "statistics": {
@@ -77,17 +77,17 @@
       "roc_curves": {
         "method": "roc_curve_ovr",
         "params": {},
-        "source": "jhn_ai.metrics"
+        "source": "crlearn.metrics"
       },
       "pr_curves": {
         "method": "pr_curve_ovr",
         "params": {},
-        "source": "jhn_ai.metrics"
+        "source": "crlearn.metrics"
       },
       "decision_curves": {
         "method": "decision_curve",
         "params": {},
-        "source": "jhn_ai.metrics"
+        "source": "crlearn.metrics"
       }
     }
   },

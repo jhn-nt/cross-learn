@@ -5,17 +5,61 @@ from numpy.typing import ArrayLike
 
 
 def support(y_true: ArrayLike) -> ArrayLike:
+    """Returns the amount of samples in each class.
+
+    Parameters
+    ----------
+    y_true : ArrayLike
+        Targets.
+
+    Returns
+    -------
+    ArrayLike
+        Array where each element is the amount of samples per each class.
+    """
     _, support = np.unique(y_true, return_counts=True)
     return support
 
 
 def class_index(y_true: ArrayLike) -> ArrayLike:
+    """Returns the class labels.
+
+    Parameters
+    ----------
+    y_true : ArrayLike
+        Targets.
+
+    Returns
+    -------
+    ArrayLike
+        Class integer labels.
+    """
     return np.unique(y_true)
 
 
 def roc_curve_ovr(
     y_true: ArrayLike, y_score: ArrayLike, resolution: float = 0.01
 ) -> Dict[str, ArrayLike]:
+    """Computes ROC curves.
+
+    Extension of `sklearn.metrics.roc_curve` to the multi-class case.
+
+    Parameters
+    ----------
+    y_true : ArrayLike
+        Targets.
+    y_score : ArrayLike
+        Probabilities of each sample belonging to a class.
+    resolution : float, optional
+        Resolution of the ROC curve, by default 0.01
+
+    Returns
+    -------
+    Dict[str, ArrayLike]
+        A dictionary with an `fpr` key containing the false positive rates.
+        It contains a key for each class each containing the respective true positive rates.
+    """
+
     def naive_ohe(y_true: ArrayLike) -> ArrayLike:
         ohe = np.zeros((y_true.shape[0], np.max(y_true) + 1))
         ohe[np.arange(y_true.shape[0]), y_true] = 1
@@ -35,6 +79,26 @@ def roc_curve_ovr(
 def pr_curve_ovr(
     y_true: ArrayLike, y_score: ArrayLike, resolution: float = 0.01
 ) -> Dict[str, ArrayLike]:
+    """Computes PR curves.
+
+    Extension of `sklearn.metrics.precision_recall_curve` to the multi-class case.
+
+    Parameters
+    ----------
+    y_true : ArrayLike
+        Targets.
+    y_score : ArrayLike
+        Probabilities of each sample belonging to a class.
+    resolution : float, optional
+        Resolution of the ROC curve, by default 0.01
+
+    Returns
+    -------
+    Dict[str, ArrayLike]
+        A dictionary with an `fpr` key containing the false positive rates.
+        It contains a key for each class each containing the respective true positive rates.
+    """
+
     def naive_ohe(y_true: ArrayLike) -> ArrayLike:
         ohe = np.zeros((y_true.shape[0], np.max(y_true) + 1))
         ohe[np.arange(y_true.shape[0]), y_true] = 1
@@ -56,6 +120,22 @@ def pr_curve_ovr(
 def decision_curve_at_threshold(
     y_true: ArrayLike, y_score: ArrayLike, thresholds: ArrayLike
 ) -> ArrayLike:
+    """Computes the net benefit at a given threshold.
+
+    Parameters
+    ----------
+    y_true : ArrayLike
+        Targets.
+    y_score : ArrayLike
+        Probabilities of each sample belonging to a class.
+    thresholds : ArrayLike
+        Risk threshold where to evaluate the risk benefits.
+
+    Returns
+    -------
+    ArrayLike
+        Net benefit for each threshold in thresholds.
+    """
     N = y_true.shape[0]
 
     def local_net_benefit(threshold):
@@ -71,6 +151,23 @@ def decision_curve_at_threshold(
 def decision_curve(
     y_true: ArrayLike, y_score: ArrayLike, resolution: float = 0.01
 ) -> Dict[str, ArrayLike]:
+    """Computes the net benefits for each class.
+
+    Parameters
+    ----------
+    y_true : ArrayLike
+        Targets.
+    y_score : ArrayLike
+        Probabilities of each sample belonging to a class.
+    resolution : float
+        Desired resolution for the descion curves.
+
+    Returns
+    -------
+    ArrayLike
+        Net benefit for each class.
+    """
+
     def naive_ohe(y_true):
         ohe = np.zeros((y_true.shape[0], np.max(y_true) + 1))
         ohe[np.arange(y_true.shape[0]), y_true] = 1
@@ -89,6 +186,22 @@ def decision_curve(
 
 
 def roc_auc_score(y_true: ArrayLike, y_score: ArrayLike, *args, **kwargs) -> ArrayLike:
+    """Computes the area under the curve of the ROC.
+
+    Extension of `sklearn.metrics.roc_auc_score` to support the binary case.
+
+    Parameters
+    ----------
+    y_true : ArrayLike
+        Targets.
+    y_score : ArrayLike
+        Probabilities of each sample belonging to a class.
+
+    Returns
+    -------
+    ArrayLike
+        AUCROC scores.
+    """
     if y_score.shape[1] == 2:
         auc = metrics.roc_auc_score(y_true, y_score[..., 1], *args, **kwargs)
         output = np.array([auc, auc])

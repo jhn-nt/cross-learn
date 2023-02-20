@@ -7,6 +7,7 @@ from typing import Dict, Union, Callable, Optional, Tuple, Any, List
 from numpy.typing import ArrayLike
 from functools import partial
 from ._utils import _index_X, _index_y, _index_groups, hasparam, suppress_all_warnings
+from ._types import Estimator, CrossValidator
 from datetime import datetime
 from pathlib import Path
 import json
@@ -272,19 +273,58 @@ def time_func():
 
 @suppress_all_warnings
 def crossvalidation(
-    config,
-    mappings,
-    model,
-    X,
-    y,
-    groups=None,
-    cv=KFold(),
-    tracing_func=None,
-    custom_scores=None,
-    name: str = None,
+    config: dict,
+    mappings: dict,
+    model: Estimator,
+    X: ArrayLike,
+    y: ArrayLike,
+    groups: Optional[ArrayLike] = None,
+    cv: CrossValidator = KFold(),
+    tracing_func: Optional[Callable] = None,
+    name: Optional[str] = None,
     progress_bar: bool = True,
     **fit_kwargs,
-):
+) -> Tuple[Dict[str, Union[dict, pd.DataFrame]], dict, dict]:
+    """Base crossvalidation function.
+
+    Splits `X` and `y`, and `groups` if given, in different train/test folds as defined by `cv`.
+    After each training, `model` is fed to `tracing_func` and its results are stored in `fold_traces`.
+    At the same time, scores defined in `config` are estimated both from the training and test fold.
+
+
+
+    Parameters
+    ----------
+    config : dict
+        A dicitonary containing the scores to compute.
+    mappings : dict
+        Sklearn nomenclature mappings, for example the `predict` method returns a `y_pred` variable.
+    model : Estimator
+        Sklearn-like estimator.
+    X : ArrayLike
+        Input data.
+    y : ArrayLike
+        Targets.
+    groups : Optional[ArrayLike], optional
+        Group associated to each sample, by default None
+    cv : CrossValidator, optional
+        Sklearn-like cross validator, by default KFold()
+    tracing_func : Optional[Callable], optional
+        A callable which takes as input a trained estmator. There are no constraints in the form of its output(s), by default None
+    name : Optional[str], optional
+        Name of the experiment, by default None
+    progress_bar : bool, optional
+        If True, shows the progress of each fold, by default True
+
+    Returns
+    -------
+    Tuple[Dict[str, Union[dict, pd.DataFrame]],dict,dict]
+        The output of crossvalidate is split in three dicitonaries:
+        #. fold_scores: A dictionary where the keys of its leaves represent the name of the scoring metric and the item a dataframe with the results.
+        #. fold_traces: A dicitonary where each key is the fold number and each item the result of the `tracing_func`, if provided.
+        #. fold_indexes: A dicitonary where each key is the fold number and the items are the indexesof each train/test split with thre predicitons and predict probas.
+
+    """
     fold_scores = []
     fold_traces = {}
     fold_indexes = {}
