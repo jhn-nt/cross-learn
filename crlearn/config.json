@@ -43,6 +43,11 @@
         "method": "support",
         "params": {},
         "source": "crlearn.metrics"
+      },
+      "balance": {
+        "method": "class_balance",
+        "params": {},
+        "source": "crlearn.metrics"
       }
     },
     "statistics": {
@@ -73,18 +78,18 @@
         "source": "sklearn.metrics"
       }
     },
-    "rankings": {
-      "roc_curves": {
+    "curves": {
+      "roc": {
         "method": "roc_curve_ovr",
         "params": {},
         "source": "crlearn.metrics"
       },
-      "pr_curves": {
+      "pr": {
         "method": "pr_curve_ovr",
         "params": {},
         "source": "crlearn.metrics"
       },
-      "decision_curves": {
+      "decision": {
         "method": "decision_curve",
         "params": {},
         "source": "crlearn.metrics"

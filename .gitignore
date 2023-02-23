@@ -5,4 +5,5 @@ _raw/
 .devcontainer.json
 devbench.ipynb
 examples.ipynb
-jhn_ai/__pycache__
+crlearn/__pycache__
+requirements.txt

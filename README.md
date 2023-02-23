@@ -18,22 +18,6 @@ Contains the `crossvalidate_classification` and `crossvalidate_regression` metho
 
 Functionally, these methods act as simple scroing tracers to ease readability of evaluation metrics.
 
-```python
-import pandas as pd
-from sklearn.datasets import make_classification
-from sklearn.ensemble import RandomForestClassifier
-from crlearn.evaluation import crossvalidate_classification
-
-X,y=make_classification()
-model=RandomForestClassifier(random_state=0)
-tracing_func=lambda x: x.feature_importances_ # extracts feature importances for each traning rounds
-
-_,tracings,_=crossvalidate_classification(model,X,y,tracing_func=tracing_func)
-_=pd.DataFrame(tracings).mean(axis=1).sort_values().plot.bar(
-    title="Feature importances",
-    xlabel="Feature index",
-    ylabel="Importance") # plots the average feature importance across folds
-```
 
 ### _crossvalidators_ module
 The `crossvalidators` module introduces two new crossvalidators:

@@ -141,3 +141,7 @@ class Test(unittest.TestCase):
         optimizer = RandomizedSearchCV(model, param_grid, n_iter=4)
 
         _ = crossvalidate_regression(optimizer, X, y, name="nested_regression_test")
+
+
+if __name__ == "__main__":
+    unittest.main()
