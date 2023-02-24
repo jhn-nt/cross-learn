@@ -263,7 +263,7 @@ def explode_tree_of_scores_into_dataframes(
     return post_process_indexes(results, index=["name", "fold", "side"])
 
 
-def name_func(name) -> str:
+def name_func(name:Optional[str]) -> str:
     return name if name else f"model_{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}"
 
 
@@ -315,6 +315,8 @@ def crossvalidation(
         Name of the experiment, by default None
     progress_bar : bool, optional
         If True, shows the progress of each fold, by default True
+    suppress_warnings: bool, optional
+        If True, all warnings are caught, by default True
 
     Returns
     -------
@@ -395,10 +397,116 @@ def crossvalidation(
 
 
 def crossvalidate_classification(*args, **kwargs):
+    """Crossvalidation of Classifiers.
+
+    Splits `X` and `y`, and `groups` if given, in different train/test folds as defined by `cv`.
+    After each training, `model` is fed to `tracing_func` and its results are stored in `fold_traces`.
+
+    If `model` is an optimizer instance (ie nested crossvalidation), such as `GridSearchCV` or `RandomizedSearchCV` model, and cross-validation is group based,
+    then the `groups` parameter is inherited properly to the inner and outer crossvalidation loops.
+
+    By default, `crossvalidate_classification` computes for each train/test split:
+        1. class-wise  scores: f1 score,precision,recall,support,auc,balance.
+        2. model-wise scores: accuracy, balanced accuracy, adjusted balanced accuracy and normalized accuracy.
+        3. class-wise classification curves: precision-recall curves, receiving operating characteristic curves, decision curves.
+
+    Additional scores/custom scores/family of scores can be added by editing the `config.json` file in the module local installation directory.
+
+    Parameters
+    ----------
+    model : Estimator
+        Sklearn-like estimator.
+    X : ArrayLike
+        Input data.
+    y : ArrayLike
+        Targets.
+    groups : Optional[ArrayLike], optional
+        Group associated to each sample, by default None
+    cv : CrossValidator, optional
+        Sklearn-like cross validator, by default KFold()
+    tracing_func : Optional[Callable], optional
+        A callable which takes as input a trained estmator. There are no constraints in the form of its output(s), by default None
+    name : Optional[str], optional
+        Name of the experiment, by default None
+    progress_bar : bool, optional
+        If True, shows the progress of each fold, by default True
+    suppress_warnings: bool, optional
+        If True, all warnings are caught, by default True
+
+    Returns
+    -------
+    Tuple[Dict[str, Union[dict, pd.DataFrame]],dict,dict]
+        The output of crossvalidate is split in three dicitonaries:
+        1. fold_scores: A dictionary with keys:
+            a. metrics: A dataframe containing class-wise scores like recall,precision, support etc.
+            b. statistics: A dataframe containing classification-wise scores like accuracy.
+            c. curves: Dictionary of dataframes representing different curves computed using different thresholds levels, examples are ROC and precision-recall curves.
+            Additional scores/custom scores can be added by editing the `config.json` file in the local module installation directory.
+        2. fold_traces: A dicitonary where each key is the fold number and each item the result of the `tracing_func`, if provided.
+        3. fold_indexes: A dicitonary where each key is the fold number and the items are the indexes of each train/test split with predicitons and predicted probabilities.
+
+    Notes
+    -----
+    Please note that `X`,`y` and `groups` are casted to `ndarray` before entering the pipeline. 
+    This may raise errors if any part of the `model` relies on `pd.DataFrame` column/index names, in this case consider numerical indexing of columns instead.
+
+    """
     return crossvalidation(
         CONFIG["CLASSIFICATION"], CONFIG["MAPPINGS"], *args, **kwargs
     )
 
 
 def crossvalidate_regression(*args, **kwargs):
+    """Crossvalidation of Regressors.
+
+    Splits `X` and `y`, and `groups` if given, in different train/test folds as defined by `cv`.
+    After each training, `model` is fed to `tracing_func` and its results are stored in `fold_traces`.
+
+    If `model` is an optimizer instance (ie nested crossvalidation), such as `GridSearchCV` or `RandomizedSearchCV` model, and cross-validation is group based,
+    then the `groups` parameter is inherited properly to the inner and outer crossvalidation loops.
+
+    By default, `crossvalidate_regression` computes for each train/test split:
+        1. statistics:mse, rmse, explained variance, r2, max error and median absolute error.
+
+    Additional scores/custom scores/family of scores can be added by editing the `config.json` file in the module local installation directory.
+
+    Parameters
+    ----------
+    model : Estimator
+        Sklearn-like estimator.
+    X : ArrayLike
+        Input data.
+    y : ArrayLike
+        Targets.
+    groups : Optional[ArrayLike], optional
+        Group associated to each sample, by default None
+    cv : CrossValidator, optional
+        Sklearn-like cross validator, by default KFold()
+    tracing_func : Optional[Callable], optional
+        A callable which takes as input a trained estmator. There are no constraints in the form of its output(s), by default None
+    name : Optional[str], optional
+        Name of the experiment, by default None
+    progress_bar : bool, optional
+        If True, shows the progress of each fold, by default True
+    suppress_warnings: bool, optional
+        If True, all warnings are caught, by default True
+
+    Returns
+    -------
+    Tuple[Dict[str, Union[dict, pd.DataFrame]],dict,dict]
+        The output of crossvalidate is split in three dicitonaries:
+        1. fold_scores: A dictionary with keys:
+            a. statistics: A dataframe containing classification-wise scores like mse, rmse and r2.
+            Additional scores/custom scores can be added by editing the `config.json` file in the local module installation directory.
+        2. fold_traces: A dicitonary where each key is the fold number and each item the result of the `tracing_func`, if provided.
+        3. fold_indexes: A dicitonary where each key is the fold number and the items are the indexes of each train/test split with predicitons and predicted probabilities.
+
+    Notes
+    -----
+    Please note that `X`,`y` and `groups` are casted to `ndarray` before entering the pipeline.
+    This may raise errors if any part of the `model` relies on `pd.DataFrame` column/index names, in this case consider numerical indexing of columns instead.
+
+    """
     return crossvalidation(CONFIG["REGRESSION"], CONFIG["MAPPINGS"], *args, **kwargs)
+
+

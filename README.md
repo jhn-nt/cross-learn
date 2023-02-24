@@ -16,7 +16,7 @@ The code is functionally split in 3 separate modules: _crossvalidators_, _evalua
 ### _evaluation_ module
 Contains the `crossvalidate_classification` and `crossvalidate_regression` methods, all-in-one wrappers to obtain crossvalidation and nested crossvalidation scores with any sklearn-like model or pipeline, but most importantly allows for _intra-fold dependencies_ during crossvalidation (ie nested crossvalidation with GroupKFold or similar).
 
-Functionally, these methods act as simple scroing tracers to ease readability of evaluation metrics.
+Functionally, these methods act as simple scoring tracers to ease readability of evaluation metrics.
 
 
 ### _crossvalidators_ module
@@ -26,7 +26,7 @@ The `crossvalidators` module introduces two new crossvalidators:
 
 ### _transformers_ module
 Revisions of some vanilla sklearn transformers with some new functionality:  
-* `DropColin`: Unsupervised filtering of correlated features. 
+* `DropColin`: Unsupervised filtering of linearly correlated features. 
 * `DropColinCV`: Crossvalidated extension of `DropColin`. 
 * `DropByMissingRate`: Filters out features missing more than a predefined thershold.
 * `DropByMissingRateCV`: Crossvalidated extension of `DropByMissingRate`. 
