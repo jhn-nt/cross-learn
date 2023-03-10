@@ -93,6 +93,11 @@
         "method": "decision_curve",
         "params": {},
         "source": "crlearn.metrics"
+      },
+      "calibration": {
+        "method": "calibration_curve",
+        "params": {},
+        "source": "crlearn.metrics"
       }
     }
   },
@@ -127,6 +132,11 @@
       },
       "median_absolute_error": {
         "method": "median_absolute_error",
+        "params": {},
+        "source": "sklearn.metrics"
+      },
+      "mean_absolute_percentage_error": {
+        "method": "mean_absolute_percentage_error",
         "params": {},
         "source": "sklearn.metrics"
       }

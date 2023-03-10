@@ -20,7 +20,8 @@ def support(y_true: ArrayLike) -> ArrayLike:
     _, support = np.unique(y_true, return_counts=True)
     return support
 
-def class_balance(y_true: ArrayLike)->ArrayLike:
+
+def class_balance(y_true: ArrayLike) -> ArrayLike:
     """Returns the relative size in percent of class.
 
     Parameters
@@ -33,8 +34,8 @@ def class_balance(y_true: ArrayLike)->ArrayLike:
     ArrayLike
         Array where each element is the precent of samples per each class.
     """
-    class_support=support(y_true)
-    return class_support/np.sum(class_support)
+    class_support = support(y_true)
+    return class_support / np.sum(class_support)
 
 
 def class_index(y_true: ArrayLike) -> ArrayLike:
@@ -165,7 +166,10 @@ def decision_curve_at_threshold(
 
 
 def decision_curve(
-    y_true: ArrayLike, y_score: ArrayLike, resolution: float = 0.01,add_reference:bool=False
+    y_true: ArrayLike,
+    y_score: ArrayLike,
+    resolution: float = 0.01,
+    add_reference: bool = False,
 ) -> Dict[str, ArrayLike]:
     """Computes the net benefits for each class.
 
@@ -202,9 +206,17 @@ def decision_curve(
         net_benefit_thresholds[i] = net_benefit
 
     if add_reference:
-        reference_thresholds=decision_curve(y_true,np.ones_like(y_ohe))
-        net_benefit_thresholds={(key,""):item for key,item in net_benefit_thresholds.items()}
-        net_benefit_thresholds.update({(key,"treat_all"):item for key,item in reference_thresholds.items() if key!="threshold"})
+        reference_thresholds = decision_curve(y_true, np.ones_like(y_ohe))
+        net_benefit_thresholds = {
+            (key, ""): item for key, item in net_benefit_thresholds.items()
+        }
+        net_benefit_thresholds.update(
+            {
+                (key, "treat_all"): item
+                for key, item in reference_thresholds.items()
+                if key != "threshold"
+            }
+        )
     return net_benefit_thresholds
 
 
@@ -231,3 +243,34 @@ def roc_auc_score(y_true: ArrayLike, y_score: ArrayLike, *args, **kwargs) -> Arr
     else:
         output = metrics.roc_auc_score(y_true, y_score, *args, **kwargs)
     return output
+
+
+def calibration_curve(
+    y_true: ArrayLike, y_score: ArrayLike, resolution: float = 0.05
+) -> Dict[str, ArrayLike]:
+    """Computes calibration curves.
+
+    Args:
+        y_true (ArrayLike): Targets.
+        y_score (ArrayLike): Probabilities of each sample belonging to a class.
+        resolution (float, optional): Desired resolution for the calibration curves. Defaults to 0.05.
+
+    Returns:
+        Dict[str, ArrayLike]: Calibration curve for each class.
+    """
+    def naive_ohe(y_true):
+        ohe = np.zeros((y_true.shape[0], np.max(y_true) + 1))
+        ohe[np.arange(y_true.shape[0]), y_true] = 1
+        non_empty_classes = np.where(ohe.sum(axis=0))[0]
+        return ohe[..., non_empty_classes]
+
+    y_ohe = naive_ohe(y_true)
+    bins = np.arange(0.0, 1.0 + resolution, resolution)
+    calibration_curves = {"mean_predicted_probability": bins}
+    for i in range(y_ohe.shape[1]):
+        digits = np.digitize(y_score[..., i], bins)
+        expected = np.nan * np.zeros_like(bins)
+        for j in np.unique(digits):
+            expected[j] = np.mean(y_ohe[np.where(digits == j), i])
+        calibration_curves[i] = expected
+    return calibration_curves
