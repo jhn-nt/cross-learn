@@ -39,6 +39,8 @@ def elbow_triangle(x: ArrayLike, y: ArrayLike) -> ArrayLike:
 def _index_X(X:ArrayLike, idx:ArrayLike)->ArrayLike:
     """Slices Input Data.
 
+    If X is a DataFrame, it inherits its column properties.
+
     Parameters
     ----------
     X : ArrayLike
@@ -51,7 +53,11 @@ def _index_X(X:ArrayLike, idx:ArrayLike)->ArrayLike:
     ArrayLike
         Indexed Input Data.
     """
-    return np.asarray(X)[np.asarray(idx),...]
+    if isinstance(X,pd.DataFrame):
+        X= pd.DataFrame(np.asarray(X)[np.asarray(idx),...],columns=X.columns)
+    else:
+        X=np.asarray(X)[np.asarray(idx),...]
+    return X
 
 
 def _index_y(y:ArrayLike, idx:ArrayLike)->ArrayLike:
