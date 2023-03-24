@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name="cross-learn",
-    version="1.0",
+    version="1.01",
     description="extensive scoring of crossvalidation loops.",
     author="jhn-nt",
     packages=["crlearn"],

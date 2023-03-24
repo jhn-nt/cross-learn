@@ -36,10 +36,8 @@ def elbow_triangle(x: ArrayLike, y: ArrayLike) -> ArrayLike:
 
 
 
-def _index_X(X:ArrayLike, idx:ArrayLike)->ArrayLike:
+def index_X(X:ArrayLike, idx:ArrayLike)->ArrayLike:
     """Slices Input Data.
-
-    If X is a DataFrame, it inherits its column properties.
 
     Parameters
     ----------
@@ -53,14 +51,14 @@ def _index_X(X:ArrayLike, idx:ArrayLike)->ArrayLike:
     ArrayLike
         Indexed Input Data.
     """
-    if isinstance(X,pd.DataFrame):
-        X= pd.DataFrame(np.asarray(X)[np.asarray(idx),...],columns=X.columns)
-    else:
-        X=np.asarray(X)[np.asarray(idx),...]
-    return X
+    if hasattr(X,"iloc"):
+        slice_f=getattr(X,"iloc")
+    elif hasattr(X,"__getitem__"):
+        slice_f=X
+    return slice_f[idx,:]
 
 
-def _index_y(y:ArrayLike, idx:ArrayLike)->ArrayLike:
+def index_y(y:ArrayLike, idx:ArrayLike)->ArrayLike:
     """Slices Target Data.
 
     Parameters
@@ -75,10 +73,14 @@ def _index_y(y:ArrayLike, idx:ArrayLike)->ArrayLike:
     ArrayLike
         Indexed Target Data.
     """
-    return np.asarray(y)[np.asarray(idx),...]
+    if hasattr(y,"iloc"):
+        slice_f=getattr(y,"iloc")
+    elif hasattr(y,"__getitem__"):
+        slice_f=y
+    return slice_f[idx]
 
 
-def _index_groups(groups:Optional[ArrayLike], idx:ArrayLike)->Optional[ArrayLike]:
+def index_groups(groups:Optional[ArrayLike], idx:ArrayLike)->Optional[ArrayLike]:
     """Slices Group Data.
 
     Parameters
@@ -93,7 +95,16 @@ def _index_groups(groups:Optional[ArrayLike], idx:ArrayLike)->Optional[ArrayLike
     Optional[ArrayLike]
         Indexed Group Data.
     """
-    return np.asarray(groups)[np.asarray(idx),...] if groups is not None else None
+    if groups is not None:
+        if hasattr(groups,"iloc"):
+            slice_f=getattr(groups,"iloc")
+        elif hasattr(groups,"__getitem__"):
+            slice_f=groups
+        return slice_f[idx]
+    else:
+        return None
+
+
 
 
 

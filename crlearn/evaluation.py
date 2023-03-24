@@ -6,7 +6,7 @@ from importlib import import_module
 from typing import Dict, Union, Callable, Optional, Tuple, Any, List
 from numpy.typing import ArrayLike
 from functools import partial
-from ._utils import _index_X, _index_y, _index_groups, hasparam, suppress_all_warnings
+from ._utils import index_X, index_y, index_groups, hasparam, suppress_all_warnings
 from ._types import Estimator, CrossValidator
 from datetime import datetime
 from pathlib import Path
@@ -343,14 +343,14 @@ def crossvalidation(
     for fold, (train_ix, test_ix) in pbar:
         # slice data according to validations folds
         X_train, y_train, groups_train = (
-            _index_X(X, train_ix),
-            _index_y(y, train_ix),
-            _index_groups(groups, train_ix),
+            index_X(X, train_ix),
+            index_y(y, train_ix),
+            index_groups(groups, train_ix),
         )
         X_test, y_test, groups_test = (
-            _index_X(X, test_ix),
-            _index_y(y, test_ix),
-            _index_groups(groups, test_ix),
+            index_X(X, test_ix),
+            index_y(y, test_ix),
+            index_groups(groups, test_ix),
         )
 
         # model training

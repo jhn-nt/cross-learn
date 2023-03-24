@@ -3,6 +3,7 @@ import unittest
 
 import numpy as np
 import numpy.random as rng
+import pandas as pd
 from numpy.typing import ArrayLike
 
 
@@ -127,6 +128,38 @@ class Test(unittest.TestCase):
             n_informative=50,
         )
         X = self.add_random_missing_values(X)
+
+        model = Pipeline(
+            [
+                ("missing_filter", DropByMissingRateCV()),
+                ("impiter", SimpleImputer()),
+                ("linear_filter", DropColinCV()),
+                ("regressor", Ridge(random_state=0)),
+            ]
+        )
+        param_grid = {"regressor__alpha": [0.001, 0.01, 0.1, 1]}
+
+        optimizer = RandomizedSearchCV(model, param_grid, n_iter=4)
+
+        _ = crossvalidate_regression(optimizer, X, y, name="nested_regression_test")
+
+    def test_nested_regression_with_dataframes(self):
+        from sklearn.pipeline import Pipeline
+        from sklearn.linear_model import Ridge
+        from sklearn.impute import SimpleImputer
+        from sklearn.datasets import make_regression
+        from sklearn.model_selection import RandomizedSearchCV
+
+        from crlearn.transformers import DropColinCV, DropByMissingRateCV
+        from crlearn.evaluation import crossvalidate_regression
+
+        X, y = make_regression(
+            n_samples=1000,
+            n_features=100,
+            n_informative=50,
+        )
+        X = pd.DataFrame(self.add_random_missing_values(X))
+        y=pd.Series(y)
 
         model = Pipeline(
             [
