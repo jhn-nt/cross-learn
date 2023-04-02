@@ -324,12 +324,12 @@ def crossvalidation(
         The output of crossvalidate is split in three dicitonaries:
         #. fold_scores: A dictionary where the keys of its leaves represent the name of the scoring metric and the item a dataframe with the results.
         #. fold_traces: A dicitonary where each key is the fold number and each item the result of the `tracing_func`, if provided.
-        #. fold_indexes: A dicitonary where each key is the fold number and the items are the indexesof each train/test split with thre predicitons and predict probas.
+        #. fold_indexes: A dicitonary whith two keys,`train` and `test`, and the items are the indexes of each train/test split with the predicitons and predict probas.
 
     """
     fold_scores = []
     fold_traces = {}
-    fold_indexes = {}
+    fold_indexes = []
 
     name = name_func(name)
     n_splits = cv.get_n_splits(X, y, groups)
@@ -384,15 +384,26 @@ def crossvalidation(
         # storing traces and scores
         fold_scores += [train_scores, test_scores]
         fold_traces[fold] = trace
-        fold_indexes[fold] = {
-            "train": {"ix": train_ix, **train_inferences},
-            "test": {"ix": test_ix, **test_inferences},
-        }
+        fold_indexes += [{
+            "train":
+            {
+                "fold": np.broadcast_to(fold,train_ix.shape), 
+                "name": np.broadcast_to(name,train_ix.shape),
+                "ix": train_ix, 
+                **train_inferences},
+            "test":
+            {                
+                "fold": np.broadcast_to(fold,test_ix.shape), 
+                "name": np.broadcast_to(name,test_ix.shape),
+                "ix": test_ix, 
+                **test_inferences}
+                }
+        ]
 
     return (
         explode_tree_of_scores_into_dataframes(fold_scores),
         fold_traces,
-        fold_indexes,
+        zip_dicts(*fold_indexes,merge_func=lambda *x:np.concatenate(x,axis=0)),
     )
 
 
@@ -443,7 +454,7 @@ def crossvalidate_classification(*args, **kwargs):
             c. curves: Dictionary of dataframes representing different curves computed using different thresholds levels, examples are ROC and precision-recall curves.
             Additional scores/custom scores can be added by editing the `config.json` file in the local module installation directory.
         2. fold_traces: A dicitonary where each key is the fold number and each item the result of the `tracing_func`, if provided.
-        3. fold_indexes: A dicitonary where each key is the fold number and the items are the indexes of each train/test split with predicitons and predicted probabilities.
+        3. fold_indexes: A dictionary whith two keys,`train` and `test`, and the items are the indexes of each train/test split with the predicitons and predicted probabilities.
 
     Notes
     -----
@@ -499,7 +510,7 @@ def crossvalidate_regression(*args, **kwargs):
             a. statistics: A dataframe containing classification-wise scores like mse, rmse and r2.
             Additional scores/custom scores can be added by editing the `config.json` file in the local module installation directory.
         2. fold_traces: A dicitonary where each key is the fold number and each item the result of the `tracing_func`, if provided.
-        3. fold_indexes: A dicitonary where each key is the fold number and the items are the indexes of each train/test split with predicitons and predicted probabilities.
+        3. fold_indexes: A dictionary whith two keys,`train` and `test`, and the items are the indexes of each train/test split with the predicitons.
 
     Notes
     -----

@@ -265,7 +265,7 @@ def calibration_curve(
         return ohe[..., non_empty_classes]
 
     y_ohe = naive_ohe(y_true)
-    bins = np.arange(0.0, 1.0 + resolution, resolution)
+    bins = np.arange(.0, 1.0, resolution)
     calibration_curves = {"mean_predicted_probability": bins}
     for i in range(y_ohe.shape[1]):
         digits = np.digitize(y_score[..., i], bins)

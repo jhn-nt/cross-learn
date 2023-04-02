@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name="cross-learn",
-    version="1.0.2",
+    version="1.3",
     description="extensive scoring of crossvalidation loops.",
     author="jhn-nt",
     packages=["crlearn"],
@@ -11,6 +11,5 @@ setup(
         "scikit-learn>=1.2.1",
         "tqdm>=4.64.1",
         "scipy>=1.10.1",
-        "pandas>=1.5.3"
     ],
 )
