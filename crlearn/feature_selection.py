@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from scipy.stats import ttest_1samp
 
@@ -157,7 +158,7 @@ class DropByMissingRate(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         X, _, _ = validate_input(X, y, None, ignore_y=True)
-        na_mask = np.isnan(X)
+        na_mask = pd.isna(X) # pandas supports isna for dtypes object out of the box.
         self.coef_ = np.mean(na_mask, axis=0)
         self.support = np.where(self.coef_ <= self.max_na_rate, True, False)
         return self
@@ -193,7 +194,7 @@ class DropByMissingRateCV(DropByMissingRate):
         X, _, _ = validate_input(X, y, None, ignore_y=True)
         support = []
         for infold, _ in self.cv.split(X, y):
-            na_mask = np.isnan(X[infold, :])
+            na_mask = pd.isna(X[infold, :])
             local_rate = np.mean(na_mask, axis=0)
             support.append(local_rate)
         support = np.vstack(support)

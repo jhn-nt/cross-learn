@@ -25,7 +25,7 @@ class Test(unittest.TestCase):
         from sklearn.impute import SimpleImputer
         from sklearn.datasets import make_classification
 
-        from crlearn.transformers import DropColinCV, DropByMissingRateCV
+        from crlearn.feature_selection import DropColinCV, DropByMissingRateCV
         from crlearn.evaluation import crossvalidate_classification
 
         X, y = make_classification(
@@ -50,7 +50,7 @@ class Test(unittest.TestCase):
         from sklearn.impute import SimpleImputer
         from sklearn.datasets import make_classification
 
-        from crlearn.transformers import DropColinCV, DropByMissingRateCV
+        from crlearn.feature_selection import DropColinCV, DropByMissingRateCV
         from crlearn.evaluation import crossvalidate_classification
 
         X, y = make_classification(
@@ -83,7 +83,7 @@ class Test(unittest.TestCase):
         from sklearn.datasets import make_classification
         from sklearn.model_selection import RandomizedSearchCV
 
-        from crlearn.transformers import DropColinCV, DropByMissingRateCV
+        from crlearn.feature_selection import DropColinCV, DropByMissingRateCV
         from crlearn.evaluation import crossvalidate_classification
 
         X, y = make_classification(
@@ -119,7 +119,7 @@ class Test(unittest.TestCase):
         from sklearn.datasets import make_regression
         from sklearn.model_selection import RandomizedSearchCV
 
-        from crlearn.transformers import DropColinCV, DropByMissingRateCV
+        from crlearn.feature_selection import DropColinCV, DropByMissingRateCV
         from crlearn.evaluation import crossvalidate_regression
 
         X, y = make_regression(
@@ -150,7 +150,7 @@ class Test(unittest.TestCase):
         from sklearn.datasets import make_regression
         from sklearn.model_selection import RandomizedSearchCV
 
-        from crlearn.transformers import DropColinCV, DropByMissingRateCV
+        from crlearn.feature_selection import DropColinCV, DropByMissingRateCV
         from crlearn.evaluation import crossvalidate_regression
 
         X, y = make_regression(

@@ -7,3 +7,4 @@ devbench.ipynb
 examples.ipynb
 crlearn/__pycache__
 requirements.txt
+*.pickle

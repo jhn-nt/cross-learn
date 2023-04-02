@@ -19,11 +19,6 @@ Contains the `crossvalidate_classification` and `crossvalidate_regression` metho
 Functionally, these methods act as simple scoring tracers to ease readability of evaluation metrics.
 
 
-### _crossvalidators_ module
-The `crossvalidators` module introduces two new crossvalidators:
-* `WalkForwardCV`: Similar to sklearn TimeSeriesSplit in concept, but extended to support for group-wise time splitting. 
-* `StackedCV`: Combines the effect of different validation models. For example, if you need to validate data of different costumers with different purchase habits, you can combine GroupKFold and StratifiedKFold within ```StackedCV```. 
-
 ### _transformers_ module
 Revisions of some vanilla sklearn transformers with some new functionality:  
 * `DropColin`: Unsupervised filtering of linearly correlated features. 

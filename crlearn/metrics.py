@@ -271,6 +271,6 @@ def calibration_curve(
         digits = np.digitize(y_score[..., i], bins)
         expected = np.nan * np.zeros_like(bins)
         for j in np.unique(digits):
-            expected[j] = np.mean(y_ohe[np.where(digits == j), i])
+            expected[j-1] = np.mean(y_ohe[np.where(digits == j), i])
         calibration_curves[i] = expected
     return calibration_curves
