@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn import metrics
-from typing import Dict
+from typing import Dict, List
 from numpy.typing import ArrayLike
 
 
@@ -274,3 +274,7 @@ def calibration_curve(
             expected[j-1] = np.mean(y_ohe[np.where(digits == j), i])
         calibration_curves[i] = expected
     return calibration_curves
+
+
+def exact_prediction_rate(y_true:ArrayLike,y_pred:ArrayLike,average:List[str]=None)->ArrayLike:
+    raise NotImplementedError("Planned to be impelemented in the next release.")

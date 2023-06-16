@@ -141,5 +141,40 @@
         "source": "sklearn.metrics"
       }
     }
+  },
+  "COMPOUND_REGRESSION": {
+    "statistics": {
+      "mean_poisson_deviance": {
+        "method": "mean_poisson_deviance",
+        "params": {},
+        "source": "sklearn.metrics"
+      },
+      "mean_gamma_deviance": {
+        "method": "mean_gamma_deviance",
+        "params": {},
+        "source": "sklearn.metrics"
+      },
+      "mean_tweedie_deviance": {
+        "method": "mean_tweedie_deviance",
+        "params": {},
+        "source": "sklearn.metrics"
+      },
+      "d2_tweedie_score": {
+        "method": "d2_tweedie_score",
+        "params": {},
+        "source": "sklearn.metrics"
+      }
+    }
+  },
+  "ORDINAL_REGRESSION": {
+    "metrics": {
+      "exact_prediction_rate": {
+        "method": "exact_prediction_rate",
+        "params": {
+          "average": null
+        },
+        "source": "crlearn.metrics"
+      }
+    }
   }
 }

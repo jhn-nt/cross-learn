@@ -175,6 +175,19 @@ class Test(unittest.TestCase):
 
         _ = crossvalidate_regression(optimizer, X, y, name="nested_regression_test")
 
+    def test_compound_regression(self):
+        from sklearn.datasets import make_regression
+        from sklearn.linear_model import TweedieRegressor
+        from crlearn.evaluation import CONFIG, crossvalidation
+        import numpy as np
+        import pandas as pd
+
+        X,y=make_regression(n_samples=1000,n_features=100)
+        y=np.abs(np.ceil(y))+1
+
+        model=TweedieRegressor()
+        _,_,_=crossvalidation(CONFIG["COMPOUND_REGRESSION"],CONFIG["MAPPINGS"],model,X,y,name="compound_regression_test")
+
 
 if __name__ == "__main__":
     unittest.main()
