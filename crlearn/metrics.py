@@ -276,5 +276,43 @@ def calibration_curve(
     return calibration_curves
 
 
+def qq_curve(y_true:ArrayLike,y_pred:ArrayLike,n_thresholds:int=100,n_points:int=100)-> Dict[str, ArrayLike]:
+    """Computes the Quantile-Quantile Plot between `y_true` and `y_score`.
+
+    Args:
+        y_true (ArrayLike): Targets.
+        y_pred (ArrayLike): Predictions.
+        n_thresholds (int, optional): Number of thresholds used to estimate quantiles. Defaults to 100.
+        n_points (int, optional): Number of points used to interpolate quantiles. Defaults to 100.
+
+    Returns:
+        Dict[str, ArrayLike]: A dict with the thresholds for `y_true`,`y_pred` and the quantile associated to the threshold 
+    """
+    def ecdf(sample):
+        q=np.quantile(sample,(.01,.99))
+        thresholds=np.linspace(q[0],q[1],n_thresholds)
+        densities=np.vectorize(lambda t: np.mean(sample<t))(thresholds)
+        return densities, thresholds
+    
+    e=1/n_points
+    q_pred=np.squeeze(np.interp(np.arange(e,1+e,e),*ecdf(y_pred)))
+    q_true=np.squeeze(np.interp(np.arange(e,1+e,e),*ecdf(y_true)))
+
+    return {"q_true":q_true,"q_pred":q_pred,"q":np.arange(e,1+e,e)}
+
+
+def resilduals_curve(y_true:ArrayLike,y_pred:ArrayLike)-> Dict[str, ArrayLike]:
+    """Computes regression residuals.
+
+    Args:
+        y_true (ArrayLike): Targets.
+        y_pred (ArrayLike): Predictions.
+
+    Returns:
+        Dict[str, ArrayLike]: Residuals.
+    """
+    return {"predicted_value":np.asarray(y_pred),"residuals":np.asarray(y_true-y_pred)}
+
+
 def exact_prediction_rate(y_true:ArrayLike,y_pred:ArrayLike,average:List[str]=None)->ArrayLike:
     raise NotImplementedError("Planned to be impelemented in the next release.")

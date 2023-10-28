@@ -173,14 +173,14 @@ class Test(unittest.TestCase):
 
         optimizer = RandomizedSearchCV(model, param_grid, n_iter=4)
 
-        _ = crossvalidate_regression(optimizer, X, y, name="nested_regression_test")
+        _ = crossvalidate_regression(optimizer, X, y, name="nested_regression_with_dataframes_test")
 
     def test_compound_regression(self):
         from sklearn.datasets import make_regression
         from sklearn.linear_model import TweedieRegressor
         from crlearn.evaluation import CONFIG, crossvalidation
         import numpy as np
-        import pandas as pd
+
 
         X,y=make_regression(n_samples=1000,n_features=100)
         y=np.abs(np.ceil(y))+1

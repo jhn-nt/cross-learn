@@ -140,6 +140,18 @@
         "params": {},
         "source": "sklearn.metrics"
       }
+    },
+    "curves": {
+      "qunatile": {
+        "method": "qq_curve",
+        "params": {},
+        "source": "crlearn.metrics"
+      },
+      "residuals": {
+        "method": "resilduals_curve",
+        "params": {},
+        "source": "crlearn.metrics"
+      }
     }
   },
   "COMPOUND_REGRESSION": {
