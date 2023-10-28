@@ -142,7 +142,7 @@
       }
     },
     "curves": {
-      "qunatile": {
+      "quantiles": {
         "method": "qq_curve",
         "params": {},
         "source": "crlearn.metrics"
